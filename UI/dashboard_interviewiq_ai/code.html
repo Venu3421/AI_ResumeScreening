@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>InterviewIQ AI | Dashboard</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-surface": "#2e3132",
+                    "secondary-container": "#645efb",
+                    "outline-variant": "#c3c6d7",
+                    "on-tertiary-fixed-variant": "#5516be",
+                    "tertiary-fixed": "#e9ddff",
+                    "secondary-fixed-dim": "#c3c0ff",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "surface-bright": "#f8f9fa",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-container": "#fffbff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-background": "#191c1d",
+                    "tertiary-fixed-dim": "#d0bcff",
+                    "surface-container": "#edeeef",
+                    "primary-container": "#2563eb",
+                    "tertiary-container": "#7d4ce7",
+                    "on-tertiary-container": "#f6edff",
+                    "surface-container-low": "#f3f4f5",
+                    "outline": "#737686",
+                    "primary-fixed": "#dbe1ff",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-surface": "#191c1d",
+                    "surface": "#f8f9fa",
+                    "surface-container-high": "#e7e8e9",
+                    "on-error": "#ffffff",
+                    "on-primary-container": "#eeefff",
+                    "tertiary": "#632ecd",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-primary": "#b4c5ff",
+                    "background": "#f8f9fa",
+                    "surface-dim": "#d9dadb",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#0053db",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#00174b",
+                    "on-secondary": "#ffffff",
+                    "primary": "#004ac6",
+                    "on-secondary-fixed-variant": "#3323cc",
+                    "secondary-fixed": "#e2dfff",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-tertiary-fixed": "#23005c",
+                    "secondary": "#4b41e1",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed": "#0f0069",
+                    "on-surface-variant": "#434655",
+                    "surface-variant": "#e1e3e4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px",
+                    "margin-desktop": "40px",
+                    "stack-lg": "32px",
+                    "container-max": "1280px",
+                    "stack-sm": "8px",
+                    "section-gap": "80px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Inter"],
+                    "label-md": ["Geist"],
+                    "headline-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["Geist"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.03em", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+                    "display": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .progress-circle {
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .gradient-btn {
+            background: linear-gradient(135deg, #004ac6, #632ecd);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .gradient-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 20px -8px rgba(99, 46, 205, 0.4);
+        }
+        body {
+            background-image: radial-gradient(circle at top left, #f6f0ff 0%, transparent 25%),
+                              radial-gradient(circle at bottom right, #eff6ff 0%, transparent 25%);
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-surface/70 backdrop-blur-xl border-b border-white/20 shadow-sm">
+<div class="max-w-container-max mx-auto flex justify-between items-center px-margin-desktop py-4">
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md font-bold text-primary">InterviewIQ</span>
+<div class="hidden md:flex gap-6">
+<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1" href="#">Dashboard</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Resume</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Interview</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">History</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-primary-fixed overflow-hidden">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional headshot of a young male professional named Alex, wearing a navy blue blazer over a crisp white shirt, with a soft-focus office background featuring blurred light panels and minimalist modern decor. The lighting is bright and high-key, conveying intelligence and readiness." src="https://lh3.googleusercontent.com/aida-public/AB6AXuABtUlTVBXBG9LGJx2MWyEEfgcwDARWZ1tPgzVrqd9HEgh_OC63ZDNvEIch5jOjS-p2210NZB6cxQRJL41VADZwvmgvvDZUhW1HAJEiZ0rUHNTMSgjZ5f2GK81WNQ6ByjABsEDAkMXIIknG0FEI2dqKUgDyrJvxNcuc_omcMtEhXZdjoIxp1ieuC4A8H0tfFPj-A5c6WBAPEksM6iUUdpNnY_agzZ7ac7jJwsVkvjTmkTMoYLe888C2_t7vzYqLePv2_NwQEJ9URNo"/>
+</div>
+</div>
+</div>
+</nav>
+<main class="max-w-container-max mx-auto px-margin-desktop pt-32 pb-section-gap">
+<!-- Hero Section & Score -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-section-gap">
+<div class="lg:col-span-2 flex flex-col justify-center">
+<h1 class="font-display text-display text-on-surface mb-2">Welcome back, Alex!</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-stack-lg">You're making great progress. Your readiness score is up by 5% this week.</p>
+<div class="bg-surface-container-lowest p-stack-lg rounded-2xl border border-outline-variant/30 flex items-center justify-between">
+<div>
+<h3 class="font-headline-md text-headline-md mb-1">Today's Progress</h3>
+<p class="font-label-md text-label-md text-on-surface-variant">Finish technical mock interview to hit daily goal</p>
+</div>
+<div class="hidden sm:flex items-center gap-4">
+<div class="w-48 h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[75%] rounded-full"></div>
+</div>
+<span class="font-label-md text-label-md text-primary font-bold">75%</span>
+</div>
+</div>
+</div>
+<div class="glass-card p-stack-lg rounded-3xl flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-tertiary/5 pointer-events-none"></div>
+<h3 class="font-label-sm text-label-sm uppercase text-on-surface-variant mb-stack-md">Interview Readiness Score</h3>
+<div class="relative w-40 h-40">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container-high" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" stroke-width="12"></circle>
+<circle class="progress-circle" cx="80" cy="80" fill="transparent" r="70" stroke="url(#gradient)" stroke-dasharray="440" stroke-dashoffset="66" stroke-linecap="round" stroke-width="12"></circle>
+<defs>
+<lineargradient id="gradient" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#004ac6"></stop>
+<stop offset="100%" stop-color="#632ecd"></stop>
+</lineargradient>
+</defs>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="font-headline-lg text-headline-lg text-primary">85%</span>
+</div>
+</div>
+<p class="mt-4 font-label-md text-label-md text-tertiary font-medium">Expert Level</p>
+</div>
+</section>
+<!-- Quick Actions -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-section-gap">
+<div class="glass-card p-stack-md rounded-2xl hover:shadow-md transition-shadow group cursor-pointer">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center text-primary mb-4">
+<span class="material-symbols-outlined">upload_file</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">Upload Resume</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Get AI-driven ATS optimization and feedback in seconds.</p>
+<span class="text-primary font-label-md text-label-md flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Start Scanning <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</span>
+</div>
+<div class="glass-card p-stack-md rounded-2xl hover:shadow-md transition-shadow group cursor-pointer border-primary/20">
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center text-secondary mb-4">
+<span class="material-symbols-outlined">psychology</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">Start Mock Interview</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Practice with our empathetic AI and get instant feedback.</p>
+<span class="text-secondary font-label-md text-label-md flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Start Session <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</span>
+</div>
+<div class="glass-card p-stack-md rounded-2xl hover:shadow-md transition-shadow group cursor-pointer">
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center text-tertiary mb-4">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">View Reports</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Deep dive into your keyword gaps and tone analysis.</p>
+<span class="text-tertiary font-label-md text-label-md flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Analyze Data <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</span>
+</div>
+</section>
+<!-- Stats Grid -->
+<section class="grid grid-cols-2 lg:grid-cols-4 gap-gutter mb-section-gap">
+<div class="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Total Interviews</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-headline-lg text-headline-lg">12</h2>
+<span class="text-emerald-600 font-label-sm text-label-sm">+2 this week</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Avg. Score</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-headline-lg text-headline-lg">78%</h2>
+<span class="text-emerald-600 font-label-sm text-label-sm">+4%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">ATS Score</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-headline-lg text-headline-lg">82%</h2>
+<span class="text-on-surface-variant font-label-sm text-label-sm">Optimal</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Technical Accuracy</p>
+<div class="flex items-baseline gap-2">
+<h2 class="font-headline-lg text-headline-lg">84%</h2>
+<span class="text-primary font-label-sm text-label-sm">Top 10%</span>
+</div>
+</div>
+</section>
+<!-- Charts Section -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-gutter mb-section-gap">
+<div class="bg-surface-container-lowest p-stack-lg rounded-3xl border border-outline-variant/20 shadow-sm h-96 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md">Weekly Performance</h3>
+<select class="bg-surface-container-low border-none rounded-lg font-label-sm text-label-sm focus:ring-primary">
+<option>Last 7 Days</option>
+<option>Last 30 Days</option>
+</select>
+</div>
+<div class="flex-grow relative flex items-end gap-4 pb-4">
+<!-- Line Chart Mock -->
+<svg class="absolute inset-0 w-full h-full preserve-3d" preserveaspectratio="none" viewbox="0 0 400 100">
+<path d="M0,80 Q50,70 100,50 T200,60 T300,30 T400,10" fill="none" stroke="url(#lineGradient)" stroke-linecap="round" stroke-width="3"></path>
+<defs>
+<lineargradient id="lineGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+<stop offset="0%" stop-color="#2563eb"></stop>
+<stop offset="100%" stop-color="#7d4ce7"></stop>
+</lineargradient>
+</defs>
+</svg>
+<!-- Floating Data Points -->
+<div class="absolute w-3 h-3 bg-white border-2 border-primary rounded-full left-1/4 top-1/2 -translate-y-4 shadow-sm group">
+<div class="hidden group-hover:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-inverse-surface text-white p-2 rounded text-xs whitespace-nowrap">Score: 78%</div>
+</div>
+</div>
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-lg rounded-3xl border border-outline-variant/20 shadow-sm h-96 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md">Skill Improvement</h3>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 font-label-sm text-label-sm"><div class="w-2 h-2 rounded-full bg-primary"></div> Initial</span>
+<span class="flex items-center gap-1 font-label-sm text-label-sm"><div class="w-2 h-2 rounded-full bg-tertiary"></div> Current</span>
+</div>
+</div>
+<div class="flex-grow flex items-end justify-around pb-4">
+<!-- Bar Chart Mock -->
+<div class="flex flex-col items-center gap-2 w-full">
+<div class="flex items-end gap-1 h-48 w-12">
+<div class="bg-primary/20 w-1/2 h-[40%] rounded-t-sm"></div>
+<div class="bg-tertiary w-1/2 h-[85%] rounded-t-sm"></div>
+</div>
+<span class="font-label-sm text-label-sm">Logic</span>
+</div>
+<div class="flex flex-col items-center gap-2 w-full">
+<div class="flex items-end gap-1 h-48 w-12">
+<div class="bg-primary/20 w-1/2 h-[60%] rounded-t-sm"></div>
+<div class="bg-tertiary w-1/2 h-[75%] rounded-t-sm"></div>
+</div>
+<span class="font-label-sm text-label-sm">Communication</span>
+</div>
+<div class="flex flex-col items-center gap-2 w-full">
+<div class="flex items-end gap-1 h-48 w-12">
+<div class="bg-primary/20 w-1/2 h-[30%] rounded-t-sm"></div>
+<div class="bg-tertiary w-1/2 h-[90%] rounded-t-sm"></div>
+</div>
+<span class="font-label-sm text-label-sm">Confidence</span>
+</div>
+<div class="flex flex-col items-center gap-2 w-full">
+<div class="flex items-end gap-1 h-48 w-12">
+<div class="bg-primary/20 w-1/2 h-[50%] rounded-t-sm"></div>
+<div class="bg-tertiary w-1/2 h-[65%] rounded-t-sm"></div>
+</div>
+<span class="font-label-sm text-label-sm">Clarity</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Recent Activity -->
+<section>
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md">Recent Activity</h3>
+<button class="text-primary font-label-md text-label-md hover:underline transition-all">View All History</button>
+</div>
+<div class="bg-surface-container-lowest rounded-3xl border border-outline-variant/20 shadow-sm overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low font-label-sm text-label-sm text-on-surface-variant">
+<th class="px-6 py-4 font-medium uppercase">Session Type</th>
+<th class="px-6 py-4 font-medium uppercase">Date</th>
+<th class="px-6 py-4 font-medium uppercase">Score</th>
+<th class="px-6 py-4 font-medium uppercase">Status</th>
+<th class="px-6 py-4 font-medium uppercase text-right">Action</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">code</span>
+<span>Technical Mock (React/FE)</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Oct 24, 2024</td>
+<td class="px-6 py-5 font-bold">82%</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">Completed</span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-primary hover:text-primary-container font-label-md text-label-md">Review Feedback</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">forum</span>
+<span>Behavioral Assessment</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Oct 22, 2024</td>
+<td class="px-6 py-5 font-bold">76%</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">Completed</span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-primary hover:text-primary-container font-label-md text-label-md">Review Feedback</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">description</span>
+<span>Resume ATS Scan</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Oct 21, 2024</td>
+<td class="px-6 py-5 font-bold">89%</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">Processed</span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-primary hover:text-primary-container font-label-md text-label-md">View Report</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-stack-lg bg-surface-container-lowest border-t border-outline-variant/20">
+<div class="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center px-margin-desktop">
+<div class="mb-4 md:mb-0">
+<span class="font-headline-md text-headline-md font-bold text-primary">InterviewIQ</span>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">© 2024 InterviewIQ AI. All rights reserved.</p>
+</div>
+<div class="flex flex-wrap gap-6">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Contact Support</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Careers</a>
+</div>
+</div>
+</footer>
+<!-- AI FAB (Contextual) -->
+<button class="fixed bottom-8 right-8 w-16 h-16 rounded-full gradient-btn text-white flex items-center justify-center shadow-2xl z-40 group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform">bolt</span>
+<div class="absolute right-full mr-4 bg-inverse-surface text-white px-4 py-2 rounded-xl text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            Quick AI Mock Interview
+        </div>
+</button>
+<script>
+        // Micro-interactions and scoring animation
+        document.addEventListener('DOMContentLoaded', () => {
+            const circle = document.querySelector('.progress-circle');
+            if (circle) {
+                // Animate progress circle on load
+                setTimeout(() => {
+                    circle.style.strokeDashoffset = '66'; // 85% of 440
+                }, 500);
+            }
+
+            // Simple parallax on glass cards
+            document.querySelectorAll('.glass-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const rotateX = (y - centerY) / 20;
+                    const rotateY = (centerX - x) / 20;
+                    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+                });
+            });
+        });
+    </script>
+</body></html>

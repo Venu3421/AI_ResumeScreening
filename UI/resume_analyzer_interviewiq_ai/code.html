@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Resume Analyzer | InterviewIQ AI</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Geist:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-surface": "#2e3132",
+                    "secondary-container": "#645efb",
+                    "outline-variant": "#c3c6d7",
+                    "on-tertiary-fixed-variant": "#5516be",
+                    "tertiary-fixed": "#e9ddff",
+                    "secondary-fixed-dim": "#c3c0ff",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "surface-bright": "#f8f9fa",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-container": "#fffbff",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "on-background": "#191c1d",
+                    "tertiary-fixed-dim": "#d0bcff",
+                    "surface-container": "#edeeef",
+                    "primary-container": "#2563eb",
+                    "tertiary-container": "#7d4ce7",
+                    "on-tertiary-container": "#f6edff",
+                    "surface-container-low": "#f3f4f5",
+                    "outline": "#737686",
+                    "primary-fixed": "#dbe1ff",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-surface": "#191c1d",
+                    "surface": "#f8f9fa",
+                    "surface-container-high": "#e7e8e9",
+                    "on-error": "#ffffff",
+                    "on-primary-container": "#eeefff",
+                    "tertiary": "#632ecd",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-primary": "#b4c5ff",
+                    "background": "#f8f9fa",
+                    "surface-dim": "#d9dadb",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "surface-tint": "#0053db",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#00174b",
+                    "on-secondary": "#ffffff",
+                    "primary": "#004ac6",
+                    "on-secondary-fixed-variant": "#3323cc",
+                    "secondary-fixed": "#e2dfff",
+                    "inverse-on-surface": "#f0f1f2",
+                    "on-tertiary-fixed": "#23005c",
+                    "secondary": "#4b41e1",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed": "#0f0069",
+                    "on-surface-variant": "#434655",
+                    "surface-variant": "#e1e3e4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px",
+                    "margin-desktop": "40px",
+                    "stack-lg": "32px",
+                    "container-max": "1280px",
+                    "stack-sm": "8px",
+                    "section-gap": "80px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Inter"],
+                    "label-md": ["Geist"],
+                    "headline-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["Geist"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.03em", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "letterSpacing": "-0.01em", "fontWeight": "400"}],
+                    "display": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
+        }
+        .gradient-button {
+            background: linear-gradient(to right, #004ac6, #4b41e1);
+            transition: all 0.3s ease;
+        }
+        .gradient-button:hover {
+            transform: translateY(-4px);
+            filter: brightness(1.1);
+        }
+        .circular-progress {
+            background: radial-gradient(closest-side, white 79%, transparent 80% 100%),
+                        conic-gradient(#004ac6 72%, #e2e8f0 0);
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f1f2 25%, #e1e3e4 50%, #f0f1f2 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/70 backdrop-blur-xl border-b border-white/20 shadow-sm">
+<div class="max-w-container-max mx-auto flex justify-between items-center px-margin-desktop py-4">
+<div class="font-headline-md text-headline-md font-bold text-primary">InterviewIQ</div>
+<nav class="hidden md:flex gap-gutter items-center">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Dashboard</a>
+<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1" href="#">Resume</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Interview</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">History</a>
+</nav>
+<div class="flex items-center gap-stack-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">settings</button>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional studio portrait of a modern tech professional with a friendly smile, soft high-key lighting, clean white background, and a sharp, high-end commercial photography style that aligns with a premium AI SaaS platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBs-aUvg0t0WqcQDiADp3XIlLj1iOhVdvPvc--Ycq8CycKChjUoyuN4n7NevYDFwitYufFEEwTnK7T5iJd7DPIwzwafvC3JvnbeSwOY7_cMHVmi52zSdmgaQClhhLXSPoqIKIKsZ3p_dyqbzwdoRwhpYKM5HQaOLecpWtm5mf2uSKzdJKsbUjGjzjd7cBAqpcPPEcKtT_KaHRKX6HjIZRM7fA20ZsIXe8a5SGUq-f5z27assPVBzuuGxzdCa1QsTPhIP43w2wbxqoU"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-32 pb-section-gap px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto">
+<!-- Hero Upload Section -->
+<section class="mb-section-gap" id="upload-section">
+<div class="max-w-3xl mx-auto">
+<div class="text-center mb-stack-lg">
+<h1 class="font-display text-display mb-4">Elevate Your Career with AI</h1>
+<p class="text-body-lg text-on-surface-variant max-w-2xl mx-auto">Upload your resume to get instant ATS feedback, keyword gap analysis, and tailored improvement suggestions.</p>
+</div>
+<div class="relative group cursor-pointer transition-all duration-300 transform" id="drop-zone">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-[2rem] blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+<div class="relative glass-panel rounded-2xl border-2 border-dashed border-outline-variant p-12 flex flex-col items-center justify-center text-center hover:border-primary transition-colors bg-white/50">
+<div class="w-24 h-24 mb-6 bg-primary-fixed rounded-full flex items-center justify-center overflow-hidden">
+<!-- AI Illustration Placeholder -->
+<img class="w-20 h-20" data-alt="A sophisticated AI-inspired digital illustration of an abstract human brain constructed from glowing blue and purple circuit lines, floating in a clean, minimalist 3D space with soft ambient shadows. The style is futuristic yet accessible, perfect for a high-end recruitment technology website." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvhV_svonmP261aCzpQvf4rxskRmkEwYnV8englht_CaMArjI47Ng5EGP5cj_vRofgyqP9wu9O8fX9nHHEbyYXoEvB0UuSKMdctGrWjdBfdyD1Aw2lC-R6lnBNKqzwsmQh9Wzhf5Z9FNInZzbPcnHvnWphI-7yOfSAfPAEeXnl0GnotPRGWHFSh_1zcL0VQA82VqHYKl_C-QgthGQXmmuCzeNKqSBb-nmaXSMO9CaA4xe5h4EUwpBuywyb5k5I7hUXKR5ilb42Y2U"/>
+</div>
+<h2 class="font-headline-md text-headline-md mb-2">Upload PDF Resume</h2>
+<p class="text-on-surface-variant mb-stack-lg">Drag and drop your file here, or click to browse files</p>
+<button class="gradient-button text-on-primary px-8 py-3 rounded-xl font-label-md shadow-lg" onclick="simulateUpload()">Select File</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Loading State (Hidden by default) -->
+<section class="hidden max-w-5xl mx-auto" id="loading-state">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<div class="md:col-span-7 h-[600px] rounded-2xl skeleton"></div>
+<div class="md:col-span-5 flex flex-col gap-gutter">
+<div class="h-48 rounded-2xl skeleton"></div>
+<div class="h-32 rounded-2xl skeleton"></div>
+<div class="h-64 rounded-2xl skeleton"></div>
+</div>
+</div>
+</section>
+<!-- Analysis View (Initially Hidden) -->
+<section class="hidden" id="analysis-view">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter items-start">
+<!-- Left Side: Resume Preview -->
+<div class="md:col-span-7 glass-panel rounded-2xl overflow-hidden sticky top-28">
+<div class="bg-surface-container-low px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center">
+<span class="font-label-md text-on-surface-variant">resume_v1_final.pdf</span>
+<div class="flex gap-4">
+<button class="material-symbols-outlined text-outline">zoom_in</button>
+<button class="material-symbols-outlined text-outline">zoom_out</button>
+<button class="material-symbols-outlined text-outline">download</button>
+</div>
+</div>
+<div class="p-8 bg-white min-h-[800px] flex justify-center items-start">
+<!-- Mock Resume Content -->
+<div class="w-full max-w-lg space-y-6 opacity-60">
+<div class="h-8 w-1/2 bg-surface-container-highest rounded-full"></div>
+<div class="h-4 w-1/4 bg-surface-container-highest rounded-full"></div>
+<div class="space-y-3">
+<div class="h-3 w-full bg-surface-container rounded-full"></div>
+<div class="h-3 w-full bg-surface-container rounded-full"></div>
+<div class="h-3 w-5/6 bg-surface-container rounded-full"></div>
+</div>
+<div class="h-6 w-1/3 bg-surface-container-highest rounded-full pt-8"></div>
+<div class="space-y-4">
+<div class="flex gap-4">
+<div class="w-12 h-12 bg-surface-container rounded-lg"></div>
+<div class="flex-1 space-y-2">
+<div class="h-3 w-1/2 bg-surface-container-high rounded-full"></div>
+<div class="h-2 w-full bg-surface-container rounded-full"></div>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="w-12 h-12 bg-surface-container rounded-lg"></div>
+<div class="flex-1 space-y-2">
+<div class="h-3 w-1/2 bg-surface-container-high rounded-full"></div>
+<div class="h-2 w-full bg-surface-container rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Selection Overlay Visual -->
+<div class="bg-primary/5 border-l-4 border-primary p-4 rounded-r-lg">
+<div class="h-3 w-full bg-primary/20 rounded-full mb-2"></div>
+<div class="h-3 w-3/4 bg-primary/20 rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Analysis Tools -->
+<div class="md:col-span-5 flex flex-col gap-gutter">
+<!-- ATS Score & Progress -->
+<div class="glass-panel p-stack-lg rounded-2xl flex items-center gap-8 border-l-4 border-primary">
+<div class="relative w-32 h-32 circular-progress rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 duration-500">
+<span class="font-headline-lg text-headline-lg text-primary">72%</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-1">ATS Score</h3>
+<p class="text-body-md text-on-surface-variant">Your resume is above average. Boost it to 85% for top 10% placement.</p>
+</div>
+</div>
+<!-- Keyword Analysis -->
+<div class="glass-panel p-stack-lg rounded-2xl">
+<h3 class="font-headline-md text-headline-md mb-stack-md flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">key</span>
+                            Keywords Analysis
+                        </h3>
+<div class="space-y-stack-md">
+<div>
+<span class="font-label-sm uppercase text-on-surface-variant mb-2 block">Matched Keywords</span>
+<div class="flex flex-wrap gap-2">
+<span class="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full text-label-sm font-medium">React.js</span>
+<span class="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full text-label-sm font-medium">TypeScript</span>
+<span class="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full text-label-sm font-medium">UI Design</span>
+<span class="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full text-label-sm font-medium">Team Leadership</span>
+</div>
+</div>
+<div class="pt-2">
+<span class="font-label-sm uppercase text-on-surface-variant mb-2 block">Missing Keywords</span>
+<div class="flex flex-wrap gap-2">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-label-sm font-medium">AWS</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-label-sm font-medium">GraphQL</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-label-sm font-medium">CI/CD</span>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Suggestions -->
+<div class="glass-panel p-stack-lg rounded-2xl">
+<h3 class="font-headline-md text-headline-md mb-stack-md flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">psychology</span>
+                            AI Suggestions
+                        </h3>
+<ul class="space-y-4">
+<li class="flex gap-3 group">
+<span class="material-symbols-outlined text-primary pt-1">check_circle</span>
+<p class="text-body-md text-on-surface-variant group-hover:text-on-surface transition-colors">Quantify your achievements in your roles at Google. Use numbers (e.g., "Increased efficiency by 30%").</p>
+</li>
+<li class="flex gap-3 group">
+<span class="material-symbols-outlined text-primary pt-1">check_circle</span>
+<p class="text-body-md text-on-surface-variant group-hover:text-on-surface transition-colors">The Professional Summary is a bit long. Condense it to 3 impactful sentences.</p>
+</li>
+<li class="flex gap-3 group">
+<span class="material-symbols-outlined text-primary pt-1">check_circle</span>
+<p class="text-body-md text-on-surface-variant group-hover:text-on-surface transition-colors">Strong action verbs like "Spearheaded" or "Orchestrated" would improve your experience section.</p>
+</li>
+</ul>
+</div>
+<!-- Analyze against Job Description -->
+<div class="glass-panel p-stack-lg rounded-2xl border border-secondary/20 bg-secondary-fixed/10">
+<h3 class="font-headline-md text-headline-md mb-stack-md">Tailor for Specific Job</h3>
+<div class="space-y-4">
+<textarea class="w-full h-32 p-4 rounded-xl border border-outline-variant focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-body-md bg-white/80" placeholder="Paste the Job Description here to analyze your compatibility..."></textarea>
+<button class="w-full gradient-button text-on-primary py-4 rounded-xl font-label-md flex items-center justify-center gap-2 shadow-md">
+<span class="material-symbols-outlined">analytics</span>
+                                Analyze against Job Description
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- SideNavBar (Hidden on desktop as per JSON requirement but provided for completeness) -->
+<aside class="hidden h-full w-64 fixed left-0 top-0 pt-20 bg-surface-container-low border-r border-outline-variant/30 shadow-md flex flex-col gap-stack-sm h-screen overflow-y-auto">
+<div class="px-6 py-6 border-b border-outline-variant/20 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container">psychology</span>
+</div>
+<div>
+<div class="font-label-md text-label-md font-bold text-primary">AI Assistant</div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider">Interview Readiness</div>
+</div>
+</div>
+</div>
+<nav class="flex flex-col">
+<a class="bg-secondary-container text-on-secondary-container rounded-xl mx-2 p-3 flex items-center gap-3 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-label-md text-label-md">AI Feedback</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">graphic_eq</span>
+<span class="font-label-md text-label-md">Tone Analysis</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">key</span>
+<span class="font-label-md text-label-md">Keywords</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">tune</span>
+<span class="font-label-md text-label-md">Mock Settings</span>
+</a>
+<a class="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 hover:translate-x-1 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md text-label-md">Help</span>
+</a>
+</nav>
+<div class="mt-auto p-4">
+<button class="w-full py-3 bg-primary text-on-primary rounded-xl font-label-md shadow-sm active:scale-98 transition-transform">Analyze Now</button>
+</div>
+</aside>
+<!-- Footer -->
+<footer class="w-full py-stack-lg mt-section-gap bg-surface-container-lowest border-t border-outline-variant/20">
+<div class="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center px-margin-desktop gap-stack-md">
+<div class="font-headline-md text-headline-md font-bold text-primary">InterviewIQ</div>
+<div class="flex gap-gutter">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors duration-200 underline" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors duration-200 underline" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors duration-200 underline" href="#">Contact Support</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors duration-200 underline" href="#">Careers</a>
+</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">© 2024 InterviewIQ AI. All rights reserved.</div>
+</div>
+</footer>
+<script>
+        function simulateUpload() {
+            const uploadSection = document.getElementById('upload-section');
+            const loadingState = document.getElementById('loading-state');
+            const analysisView = document.getElementById('analysis-view');
+
+            // Fade out upload
+            uploadSection.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+            
+            setTimeout(() => {
+                uploadSection.classList.add('hidden');
+                loadingState.classList.remove('hidden');
+                loadingState.classList.add('flex');
+                
+                // Simulate processing delay
+                setTimeout(() => {
+                    loadingState.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                    
+                    setTimeout(() => {
+                        loadingState.classList.add('hidden');
+                        analysisView.classList.remove('hidden');
+                        analysisView.classList.add('animate-fade-in');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 500);
+                }, 2000);
+            }, 500);
+        }
+
+        // Drag and drop interaction
+        const dropZone = document.getElementById('drop-zone');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('scale-[1.02]', 'border-primary');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('scale-[1.02]', 'border-primary');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            simulateUpload();
+        }, false);
+    </script>
+<style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</body></html>
