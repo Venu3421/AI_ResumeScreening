@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
@@ -6,36 +6,39 @@ import Navbar from '../components/Navbar';
 const TOTAL_QUESTIONS = 5;
 
 export default function InterviewArenaPage() {
-  const [phase, setPhase]                 = useState('setup');   // setup | active | finished
+  const [phase, setPhase] = useState('setup');
   const [jobDescription, setJobDescription] = useState('');
-  const [session, setSession]             = useState(null);
+  const [session, setSession] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [questionCount, setQuestionCount] = useState(1);
-  const [timer, setTimer]                 = useState(180);
-  const [timerActive, setTimerActive]     = useState(false);
-  const [isRecording, setIsRecording]     = useState(false);
+  const [timer, setTimer] = useState(180);
+  const [timerActive, setTimerActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
-  const [audioBlob, setAudioBlob]         = useState(null);
-  const [submitting, setSubmitting]       = useState(false);
-  const [lastEval, setLastEval]           = useState(null);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [lastEval, setLastEval] = useState(null);
   const [allEvaluations, setAllEvaluations] = useState([]);
-  const [loadingQ, setLoadingQ]           = useState(false);
-  const [error, setError]                 = useState(null);
-  const [waveHeights, setWaveHeights]     = useState(Array(40).fill(10));
+  const [loadingQ, setLoadingQ] = useState(false);
+  const [error, setError] = useState(null);
+  const [waveHeights, setWaveHeights] = useState(Array(36).fill(14));
 
-  const mediaRef    = useRef(null);
-  const chunksRef   = useRef([]);
+  const mediaRef = useRef(null);
+  const chunksRef = useRef([]);
   const durationRef = useRef(null);
-  const timerRef    = useRef(null);
-  const waveRef     = useRef(null);
-  const navigate    = useNavigate();
+  const timerRef = useRef(null);
+  const waveRef = useRef(null);
+  const navigate = useNavigate();
 
-  // Timer countdown
   useEffect(() => {
     if (timerActive && timer > 0) {
-      timerRef.current = setInterval(() => setTimer(t => t - 1), 1000);
-    } else if (timer === 0 && isRecording) {
-      stopRecording();
+      timerRef.current = setInterval(() => setTimer((value) => value - 1), 1000);
+    } else if (timer === 0 && isRecording && mediaRef.current) {
+      mediaRef.current.stop();
+      setIsRecording(false);
+      clearInterval(durationRef.current);
+      clearTimeout(waveRef.current);
+      setWaveHeights(Array(36).fill(14));
     }
     return () => clearInterval(timerRef.current);
   }, [timerActive, timer, isRecording]);
@@ -46,20 +49,20 @@ export default function InterviewArenaPage() {
     clearTimeout(waveRef.current);
   }, []);
 
-  // Waveform peak animation
   const animateWave = () => {
-    setWaveHeights(Array.from({ length: 40 }, () => Math.random() * 80 + 20));
-    waveRef.current = setTimeout(animateWave, 100);
+    setWaveHeights(Array.from({ length: 36 }, () => Math.random() * 78 + 18));
+    waveRef.current = setTimeout(animateWave, 110);
   };
 
-  const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+  const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-  const startInterview = async (e) => {
-    e.preventDefault();
+  const startInterview = async (event) => {
+    event.preventDefault();
     if (!jobDescription.trim() || jobDescription.length < 20) {
-      setError('Please enter a target job description (minimum 20 characters) to analyze against.');
+      setError('Please enter a target job description with at least 20 characters.');
       return;
     }
+
     setError(null);
     setLoadingQ(true);
     try {
@@ -70,7 +73,7 @@ export default function InterviewArenaPage() {
       setTimer(180);
       setTimerActive(true);
       setPhase('active');
-    } catch (err) {
+    } catch {
       setError(err.response?.data?.message || 'Failed to start mock session. Please try again.');
     } finally {
       setLoadingQ(false);
@@ -86,21 +89,21 @@ export default function InterviewArenaPage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       mediaRef.current = recorder;
-      
-      recorder.ondataavailable = (e) => {
-        if (e.data?.size > 0) chunksRef.current.push(e.data);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) chunksRef.current.push(event.data);
       };
-      
+
       recorder.onstop = () => {
         setAudioBlob(new Blob(chunksRef.current, { type: 'audio/webm' }));
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       recorder.start(250);
       setIsRecording(true);
-      durationRef.current = setInterval(() => setRecordDuration(d => d + 1), 1000);
+      durationRef.current = setInterval(() => setRecordDuration((duration) => duration + 1), 1000);
       animateWave();
-    } catch (err) {
+    } catch {
       setError('Could not access microphone. Please verify browser recording permissions.');
     }
   };
@@ -111,7 +114,7 @@ export default function InterviewArenaPage() {
       setIsRecording(false);
       clearInterval(durationRef.current);
       clearTimeout(waveRef.current);
-      setWaveHeights(Array(40).fill(10));
+      setWaveHeights(Array(36).fill(14));
     }
   };
 
@@ -124,6 +127,7 @@ export default function InterviewArenaPage() {
       setError('Your answer must be at least 3 seconds long.');
       return;
     }
+
     setError(null);
     setSubmitting(true);
     setTimerActive(false);
@@ -135,17 +139,16 @@ export default function InterviewArenaPage() {
 
     try {
       const res = await api.post('/api/v1/interview/submit-answer', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': undefined },
       });
       const { transcript, evaluationMetrics, nextQuestion } = res.data;
-      
       const newEval = { question: currentQuestion, transcript, metrics: evaluationMetrics };
       setLastEval(newEval);
-      setAllEvaluations(prev => [...prev, newEval]);
+      setAllEvaluations((prev) => [...prev, newEval]);
 
       if (nextQuestion && questionCount < TOTAL_QUESTIONS) {
         setCurrentQuestion(nextQuestion);
-        setQuestionCount(n => n + 1);
+        setQuestionCount((value) => value + 1);
         setTimer(180);
         setAudioBlob(null);
         setRecordDuration(0);
@@ -161,323 +164,199 @@ export default function InterviewArenaPage() {
     }
   };
 
-  // Estimate performance metrics based on history
   const technicalScore = lastEval ? lastEval.metrics.technicalAccuracy : 62;
   const behavioralScore = lastEval ? lastEval.metrics.communicationClarity : 88;
   const clarityScore = lastEval ? lastEval.metrics.structuralLogic : 74;
   const overallReadiness = Math.round((technicalScore + behavioralScore + clarityScore) / 3);
-
   const circum = 440;
   const strokeOffset = circum - (circum * overallReadiness) / 100;
+  const progress = Math.round((questionCount / TOTAL_QUESTIONS) * 100);
+
+  const metrics = [
+    ['Technical accuracy', technicalScore, 'bg-primary'],
+    ['Communication clarity', behavioralScore, 'bg-secondary'],
+    ['Structural logic', clarityScore, 'bg-tertiary'],
+  ];
 
   return (
-    <div className="bg-background text-on-surface min-h-screen font-body-md selection:bg-primary-fixed">
+    <div className="min-h-screen bg-background text-on-surface">
       <Navbar />
-
-      <div className="relative">
-        {/* Sidebar Navigation */}
-        <aside className="h-full w-64 fixed left-0 top-0 pt-24 bg-surface-container-low border-r border-outline-variant/30 shadow-md hidden lg:flex flex-col gap-stack-sm overflow-y-auto">
-          <div className="px-6 mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-                <span className="material-symbols-outlined text-white text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-              </div>
-              <div>
-                <h3 className="font-label-md text-label-md font-bold">AI Tools</h3>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">Interview Readiness</p>
-              </div>
-            </div>
+      <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-28 sm:px-6 lg:px-10">
+        <section className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="mb-3 inline-flex rounded-full bg-secondary-container px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-on-secondary-container">Mock interview arena</p>
+            <h1 className="text-display text-slate-950">Practice under realistic pressure.</h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">Generate role-specific questions, record spoken answers, and review AI evaluation across clarity, accuracy, and structure.</p>
           </div>
-          <nav className="flex-grow flex flex-col gap-1">
-            <button className="bg-secondary-container text-on-secondary-container rounded-xl mx-2 p-3 flex items-center gap-3 transition-all duration-200 hover:translate-x-1 text-left outline-none cursor-pointer">
-              <span className="material-symbols-outlined">psychology</span>
-              <span className="font-label-md text-label-md">AI Feedback</span>
-            </button>
-            <button className="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 transition-all duration-200 hover:translate-x-1 text-left outline-none cursor-pointer">
-              <span className="material-symbols-outlined">graphic_eq</span>
-              <span className="font-label-md text-label-md">Tone Analysis</span>
-            </button>
-            <button className="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 transition-all duration-200 hover:translate-x-1 text-left outline-none cursor-pointer">
-              <span className="material-symbols-outlined">key</span>
-              <span className="font-label-md text-label-md">Keywords</span>
-            </button>
-            <button className="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 transition-all duration-200 hover:translate-x-1 text-left outline-none cursor-pointer">
-              <span className="material-symbols-outlined">tune</span>
-              <span className="font-label-md text-label-md">Mock Settings</span>
-            </button>
-            <button className="text-on-surface-variant hover:bg-surface-variant rounded-xl mx-2 p-3 flex items-center gap-3 transition-all duration-200 hover:translate-x-1 text-left outline-none cursor-pointer">
-              <span className="material-symbols-outlined">help</span>
-              <span className="font-label-md text-label-md">Help</span>
-            </button>
-          </nav>
-          <div className="p-4 mt-auto">
-            <button onClick={() => navigate('/history')} className="w-full py-3 rounded-xl gradient-primary text-white font-label-md shadow-md cursor-pointer">
-              View Reports
-            </button>
-          </div>
-        </aside>
+          <button
+            type="button"
+            onClick={() => navigate('/history')}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 shadow-sm hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[20px]">history</span>
+            View reports
+          </button>
+        </section>
 
-        {/* Main Content Arena */}
-        <main className="lg:pl-64 pt-24 min-h-screen flex flex-col">
-          <div className="flex-grow px-margin-desktop pb-stack-lg max-w-container-max w-full mx-auto grid grid-cols-12 gap-gutter">
-            
-            {/* Center column */}
-            <div className="col-span-12 xl:col-span-8 flex flex-col gap-6">
-              {error && (
-                <div className="p-4 bg-error-container border border-error/20 rounded-xl text-on-error-container font-label-md text-label-md">
-                  {error}
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {error}
+          </div>
+        )}
+
+        <section className="grid gap-6 xl:grid-cols-[1fr_380px]">
+          <div className="space-y-6">
+            {phase === 'setup' && (
+              <form onSubmit={startInterview} className="app-card rounded-[28px] p-6 sm:p-8 lg:p-10">
+                <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_260px] lg:items-start">
+                  <div>
+                    <h2 className="text-3xl font-extrabold text-slate-950">Set the role context</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">Paste the job description so the question set matches the role, seniority, and core skills you need to demonstrate.</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Session format</p>
+                    <p className="mt-2 text-2xl font-extrabold text-slate-950">{TOTAL_QUESTIONS} questions</p>
+                    <p className="mt-1 text-sm text-slate-500">3 minutes each</p>
+                  </div>
                 </div>
-              )}
+                <textarea
+                  value={jobDescription}
+                  onChange={(event) => setJobDescription(event.target.value)}
+                  placeholder="Paste the target job description here..."
+                  className="min-h-72 w-full resize-y rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                />
+                <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">{jobDescription.trim().length} characters</span>
+                  <button type="submit" disabled={loadingQ} className="gradient-primary inline-flex h-13 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-extrabold shadow-lg shadow-primary/20 disabled:opacity-60">
+                    {loadingQ ? 'Initializing' : 'Start interview'}
+                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                  </button>
+                </div>
+              </form>
+            )}
 
-              {/* ── Setup Stage ── */}
-              {phase === 'setup' && (
-                <section className="glass-panel rounded-3xl p-stack-lg relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-surface-container-highest">
-                    <div className="h-full gradient-primary" style={{ width: '0%' }}></div>
-                  </div>
-                  <div className="flex justify-between items-start mb-8">
-                    <div>
-                      <span className="inline-block px-3 py-1 bg-primary-fixed text-on-primary-fixed rounded-full font-label-sm text-label-sm mb-2">Setup Phase</span>
-                      <h1 className="font-headline-lg text-headline-lg text-on-surface max-w-2xl">Start Mock Interview</h1>
+            {phase === 'active' && (
+              <section className="app-card overflow-hidden rounded-[28px]">
+                <div className="h-2 bg-slate-100"><div className="h-full bg-gradient-to-r from-primary via-secondary to-tertiary transition-all" style={{ width: `${progress}%` }} /></div>
+                <div className="p-6 sm:p-8 lg:p-10">
+                  <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <span className="mb-4 inline-flex rounded-full bg-primary-container px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-on-primary-container">Question {questionCount} of {TOTAL_QUESTIONS}</span>
+                      <h2 className="max-w-3xl text-2xl font-extrabold leading-tight text-slate-950 sm:text-3xl min-h-[90px]">{currentQuestion}</h2>
                     </div>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-on-surface-variant text-body-md">
-                      Paste the Job Description below to tailor your mock interview. Our AI will automatically generate specific questions based on it.
-                    </p>
-                    <textarea 
-                      className="w-full h-48 p-4 rounded-xl border border-outline-variant focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-body-md bg-white/85" 
-                      placeholder="Paste the target Job Description here to start (minimum 20 characters)..."
-                      value={jobDescription}
-                      onChange={(e) => setJobDescription(e.target.value)}
-                    />
-                    <button 
-                      onClick={startInterview}
-                      disabled={loadingQ}
-                      className="w-full gradient-primary text-white font-headline-md py-4 rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span>{loadingQ ? 'Initializing Session...' : 'Start Session'}</span>
-                      <span className="material-symbols-outlined">arrow_forward</span>
-                    </button>
-                  </div>
-                </section>
-              )}
-
-              {/* ── Active Interview Stage ── */}
-              {phase === 'active' && (
-                <section className="glass-panel rounded-3xl p-stack-lg relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-surface-container-highest">
-                    <div className="h-full gradient-primary transition-all duration-500" id="progress-bar" style={{ width: `${(questionCount / TOTAL_QUESTIONS) * 100}%` }}></div>
-                  </div>
-                  <div className="flex justify-between items-start mb-8">
-                    <div>
-                      <span className="inline-block px-3 py-1 bg-primary-fixed text-on-primary-fixed rounded-full font-label-sm text-label-sm mb-2">Question {questionCount} of {TOTAL_QUESTIONS}</span>
-                      <h1 className="font-headline-lg text-headline-lg text-on-surface max-w-2xl">{currentQuestion}</h1>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-2 text-primary font-mono font-bold text-headline-md">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left lg:text-right">
+                      <div className="flex items-center gap-2 text-3xl font-extrabold text-primary lg:justify-end">
                         <span className="material-symbols-outlined">timer</span>
-                        <span id="timer">{formatTime(timer)}</span>
+                        {formatTime(timer)}
                       </div>
-                      <span className="font-label-sm text-label-sm text-on-surface-variant">Time remaining</span>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Time remaining</p>
                     </div>
                   </div>
 
-                  {/* Visualizer Space */}
-                  <div className={`h-64 flex items-center justify-center bg-surface-container-lowest rounded-2xl border border-outline-variant/20 mb-stack-lg relative group ${isRecording ? 'recording' : ''}`}>
-                    <div className="flex items-end gap-1 h-32 opacity-30 group-[.recording]:opacity-100 transition-opacity" id="wave-container">
-                      {waveHeights.map((h, i) => (
-                        <div key={i} className="waveform-bar w-1 bg-primary rounded-full transition-all duration-100" style={{ height: `${h}%` }}></div>
+                  <div className={`relative mb-8 flex min-h-72 items-center justify-center rounded-[24px] border border-slate-200 ${isRecording ? 'bg-red-50' : 'bg-slate-50'}`}>
+                    <div className="flex h-36 items-center gap-1.5 px-4">
+                      {waveHeights.map((height, index) => (
+                        <div key={`${height}-${index}`} className={`waveform-bar w-1.5 rounded-full ${isRecording ? 'bg-primary' : 'bg-slate-300'}`} style={{ height: `${height}%` }} />
                       ))}
                     </div>
-                    <div className="hidden absolute top-4 left-1/2 -translate-x-1/2 items-center gap-2 px-4 py-1.5 bg-error-container text-on-error-container rounded-full animate-pulse group-[.recording]:flex" id="recording-status">
-                      <div className="w-2 h-2 bg-error rounded-full"></div>
-                      <span className="font-label-sm text-label-sm font-bold">RECORDING...</span>
-                    </div>
+                    {isRecording && (
+                      <div className="absolute left-1/2 top-5 flex -translate-x-1/2 items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.12em] text-white shadow-lg">
+                        <span className="h-2 w-2 rounded-full bg-white" />
+                        Recording {formatTime(recordDuration)}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Primary Controls */}
-                  <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-                    <button 
+                  <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+                    <button
+                      type="button"
                       onClick={isRecording ? stopRecording : startRecording}
                       disabled={submitting}
-                      className={`w-24 h-24 rounded-full gradient-primary flex items-center justify-center text-white shadow-xl transition-all duration-300 active:scale-95 group cursor-pointer ${
-                        isRecording ? 'recording' : ''
-                      }`} 
-                      id="mic-btn"
+                      className={`grid h-24 w-24 place-items-center rounded-full text-white shadow-2xl transition active:scale-95 ${isRecording ? 'bg-red-600 shadow-red-600/25' : 'gradient-primary shadow-primary/20'}`}
+                      aria-label={isRecording ? 'Stop recording' : 'Start recording'}
                     >
-                      <span className="material-symbols-outlined text-4xl group-[.recording]:hidden" style={{ fontVariationSettings: "'FILL' 1" }}>mic</span>
-                      <span className="material-symbols-outlined text-4xl hidden group-[.recording]:block">stop</span>
+                      <span className="material-symbols-outlined text-4xl">{isRecording ? 'stop' : 'mic'}</span>
                     </button>
-                    <div className="flex gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       {!isRecording && (
-                        <button 
-                          onClick={isRecording ? stopRecording : startRecording}
-                          className="px-6 py-3 border border-outline text-on-surface font-label-md rounded-xl hover:bg-surface-variant transition-colors flex items-center gap-2 cursor-pointer" 
-                          id="start-recording"
-                        >
-                          <span className="material-symbols-outlined">play_arrow</span>
-                          Start Recording
+                        <button type="button" onClick={startRecording} disabled={submitting} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:text-primary disabled:opacity-50">
+                          <span className="material-symbols-outlined text-[20px]">play_arrow</span>
+                          Record answer
                         </button>
                       )}
                       {audioBlob && !isRecording && (
-                        <button 
-                          onClick={submitAnswer}
-                          disabled={submitting}
-                          className="px-6 py-3 bg-inverse-surface text-inverse-on-surface font-label-md rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 cursor-pointer" 
-                          id="submit-answer"
-                        >
-                          <span className="material-symbols-outlined">check_circle</span>
-                          {submitting ? 'Evaluating...' : 'Submit Answer'}
+                        <button type="button" onClick={submitAnswer} disabled={submitting} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white disabled:opacity-60">
+                          <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                          {submitting ? 'Evaluating' : 'Submit answer'}
                         </button>
                       )}
                     </div>
                   </div>
-                </section>
-              )}
-
-              {/* ── Finished Stage ── */}
-              {phase === 'finished' && (
-                <section className="glass-panel rounded-3xl p-stack-lg relative overflow-hidden text-center space-y-6">
-                  <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-md">
-                    <span className="material-symbols-outlined text-5xl">verified</span>
-                  </div>
-                  <h2 className="font-headline-lg text-headline-lg text-on-surface">Interview Completed!</h2>
-                  <p className="text-on-surface-variant max-w-lg mx-auto">
-                    Great job! Your answers have been successfully transcribed and evaluated by our AI.
-                  </p>
-                  <div className="flex justify-center gap-4 pt-4">
-                    <button 
-                      onClick={() => navigate('/dashboard')}
-                      className="px-8 py-3 bg-primary text-white font-label-md rounded-xl shadow-md cursor-pointer"
-                    >
-                      Go to Dashboard
-                    </button>
-                    <button 
-                      onClick={() => navigate(`/history?sessionId=${session?.sessionId}`)}
-                      className="px-8 py-3 border border-outline hover:bg-surface-container rounded-xl font-label-md transition-colors cursor-pointer"
-                    >
-                      Review Feedback
-                    </button>
-                  </div>
-                </section>
-              )}
-
-              {/* Navigation Controls */}
-              {phase === 'active' && (
-                <footer className="flex justify-between items-center p-4">
-                  <button className="flex items-center gap-2 text-on-surface-variant font-label-md hover:text-primary transition-colors cursor-pointer">
-                    <span className="material-symbols-outlined">arrow_back</span>
-                    Previous
-                  </button>
-                  <button className="flex items-center gap-2 text-primary font-bold font-label-md group cursor-pointer">
-                    Next Question
-                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                  </button>
-                </footer>
-              )}
-            </div>
-
-            {/* Sidebar (Right) - Insights & Metrics */}
-            <div className="col-span-12 xl:col-span-4 flex flex-col gap-gutter">
-              {/* Real-time Score */}
-              <section className="glass-panel rounded-3xl p-stack-lg flex flex-col items-center">
-                <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-6">Current Readiness</h3>
-                <div className="relative w-40 h-40">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="12"></circle>
-                    <circle cx="80" cy="80" fill="transparent" r="70" stroke="url(#score-gradient)" strokeDasharray="440" strokeDashoffset={strokeOffset} strokeLinecap="round" strokeWidth="12" className="transition-all duration-1000"></circle>
-                    <defs>
-                      <linearGradient id="score-gradient" x1="0%" x2="100%" y1="0%" y2="100%">
-                        <stop offset="0%" stopColor="#004ac6"></stop>
-                        <stop offset="100%" stopColor="#632ecd"></stop>
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="font-display text-display text-on-surface">{overallReadiness}</span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">ESTIMATE</span>
-                  </div>
-                </div>
-                <p className="mt-6 font-body-md text-center text-on-surface-variant">
-                  {lastEval ? 'Insights update after each response. Practice clarity and logic.' : 'Your answers will be analyzed across technical and structural aspects.'}
-                </p>
-              </section>
-
-              {/* Metrics Progress */}
-              <section className="glass-panel rounded-3xl p-stack-lg flex flex-col gap-6">
-                <h3 className="font-label-md text-label-md font-bold border-b border-outline-variant/20 pb-4">Performance Metrics</h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="font-label-md text-label-md">Technical Accuracy</span>
-                      <span className="font-label-md text-label-md text-primary">{technicalScore}%</span>
-                    </div>
-                    <div className="h-2 bg-surface-container-highest rounded-full overflow-hidden">
-                      <div className="h-full bg-primary transition-all duration-500" style={{ width: `${technicalScore}%` }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="font-label-md text-label-md">Behavioral Impact</span>
-                      <span className="font-label-md text-label-md text-tertiary">{behavioralScore}%</span>
-                    </div>
-                    <div className="h-2 bg-surface-container-highest rounded-full overflow-hidden">
-                      <div className="h-full bg-tertiary transition-all duration-500" style={{ width: `${behavioralScore}%` }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="font-label-md text-label-md">Clarity &amp; Tone</span>
-                      <span className="font-label-md text-label-md text-secondary">{clarityScore}%</span>
-                    </div>
-                    <div className="h-2 bg-surface-container-highest rounded-full overflow-hidden">
-                      <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${clarityScore}%` }}></div>
-                    </div>
-                  </div>
                 </div>
               </section>
+            )}
 
-              {/* Navigator */}
-              <section className="glass-panel rounded-3xl p-stack-lg overflow-hidden">
-                <h3 className="font-label-md text-label-md font-bold mb-4">Interview Progress</h3>
-                <div className="grid grid-cols-5 gap-2">
-                  {Array.from({ length: 10 }).map((_, idx) => {
-                    const num = idx + 1;
-                    const isCurrent = num === questionCount;
-                    const isPassed = num < questionCount;
-                    return (
-                      <div 
-                        key={num} 
-                        className={`h-10 rounded-lg flex items-center justify-center font-label-md border transition-all ${
-                          isCurrent ? 'border-primary text-primary font-bold shadow-inner' :
-                          isPassed ? 'bg-primary text-white border-primary' : 'bg-surface-container-highest text-on-surface-variant border-transparent'
-                        }`}
-                      >
-                        {num}
-                      </div>
-                    );
-                  })}
+            {phase === 'finished' && (
+              <section className="app-card rounded-[28px] p-8 text-center sm:p-12">
+                <span className="mx-auto grid h-20 w-20 place-items-center rounded-[24px] bg-emerald-50 text-emerald-600">
+                  <span className="material-symbols-outlined text-5xl">verified</span>
+                </span>
+                <h2 className="mt-6 text-3xl font-extrabold text-slate-950">Interview completed</h2>
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">Your answers were submitted and evaluated. Review the detailed transcript and coaching feedback in history.</p>
+                <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                  <button type="button" onClick={() => navigate('/dashboard')} className="rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-extrabold text-slate-700 hover:text-primary">Dashboard</button>
+                  <button type="button" onClick={() => navigate(`/history?sessionId=${session?.sessionId}`)} className="gradient-primary rounded-2xl px-6 py-3 text-sm font-extrabold shadow-lg shadow-primary/20">Review feedback</button>
                 </div>
               </section>
-            </div>
-
+            )}
           </div>
-        </main>
-      </div>
 
-      {/* Footer */}
-      <footer className="w-full py-stack-lg mt-section-gap bg-surface-container-lowest border-t border-outline-variant/20">
-        <div className="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center px-margin-desktop">
-          <span className="font-headline-md text-headline-md font-bold text-primary mb-4 md:mb-0">InterviewIQ</span>
-          <p className="font-label-sm text-label-sm text-on-surface-variant">© 2026 InterviewIQ AI. All rights reserved.</p>
-          <div className="flex gap-6 mt-4 md:mt-0">
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary underline transition-colors" href="#">Privacy Policy</a>
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary underline transition-colors" href="#">Terms of Service</a>
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary underline transition-colors" href="#">Contact Support</a>
-          </div>
-        </div>
-      </footer>
+          <aside className="space-y-6">
+            <section className="app-card rounded-[28px] p-6 text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Current readiness</p>
+              <div className="relative mx-auto my-6 h-40 w-40">
+                <svg className="h-full w-full -rotate-90" viewBox="0 0 160 160">
+                  <circle className="text-slate-200" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="12" />
+                  <circle cx="80" cy="80" fill="transparent" r="70" stroke="url(#arenaScore)" strokeDasharray="440" strokeDashoffset={strokeOffset} strokeLinecap="round" strokeWidth="12" className="transition-all duration-700" />
+                  <defs><linearGradient id="arenaScore" x1="0%" x2="100%"><stop stopColor="#0f5bd8" /><stop offset="100%" stopColor="#7c3aed" /></linearGradient></defs>
+                </svg>
+                <div className="absolute inset-0 grid place-items-center"><span className="text-4xl font-extrabold text-slate-950">{overallReadiness}</span></div>
+              </div>
+              <p className="text-sm leading-6 text-slate-600">{lastEval ? 'Updated from your latest answer.' : 'Scores update after each submitted answer.'}</p>
+            </section>
+
+            <section className="app-card rounded-[28px] p-6">
+              <h2 className="mb-5 text-xl font-extrabold text-slate-950">Performance metrics</h2>
+              <div className="space-y-5">
+                {metrics.map(([label, value, color]) => (
+                  <div key={label}>
+                    <div className="mb-2 flex justify-between text-sm font-bold text-slate-700"><span>{label}</span><span>{value}%</span></div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} /></div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="app-card rounded-[28px] p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-xl font-extrabold text-slate-950">Progress</h2>
+                <span className="text-sm font-bold text-slate-500">{allEvaluations.length}/{TOTAL_QUESTIONS} submitted</span>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: TOTAL_QUESTIONS }).map((_, index) => {
+                  const num = index + 1;
+                  const isCurrent = num === questionCount && phase === 'active';
+                  const isPassed = num <= allEvaluations.length;
+                  return (
+                    <div key={num} className={`grid h-11 place-items-center rounded-xl border text-sm font-extrabold ${isCurrent ? 'border-primary bg-blue-50 text-primary' : isPassed ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-white text-slate-400'}`}>{num}</div>
+                  );
+                })}
+              </div>
+            </section>
+          </aside>
+        </section>
+      </main>
     </div>
   );
 }
+

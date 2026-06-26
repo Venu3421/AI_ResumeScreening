@@ -4,7 +4,7 @@ This project uses a decoupled, three-tier architecture optimized for rapid deplo
 
 ## Architecture
 
-*   **Frontend:** React.js (v18+), Vite, TailwindCSS, Axios, HTML5 MediaRecorder API.
+*   **Frontend:** React.js (v19+), Vite, TailwindCSS (v4), Axios, HTML5 MediaRecorder API.
 *   **Backend Application Server:** Spring Boot (Java 17), Spring Data JPA, Spring Security (JWT).
 *   **AI Orchestration Microservice:** Python (v3.10+), FastAPI, Google GenAI SDK (Gemini 1.5 Flash free tier).
 *   **Database:** PostgreSQL.
@@ -25,7 +25,7 @@ Ensure PostgreSQL is running and create a database named `interview_db`.
 
 ### 2. Backend Application Server (Spring Boot)
 1. Navigate to the `/backend` directory.
-2. The `src/main/resources/application.properties` file is already configured, but you will need to replace the placeholder `your-google-client-id` and `your-google-client-secret` with actual Google OAuth credentials if you are using Google Login. You may also need to update the database password (`spring.datasource.password`) if it differs from your local setup.
+2. The `src/main/resources/application.properties` file is configured to use environment variables `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for Google OAuth credentials (with local fallbacks). You can set these in your environment or update `application.properties` directly.
 3. Run the application:
 ```bash
 cd backend
@@ -55,6 +55,7 @@ The AI service will start on `http://localhost:8000`.
 2. Create a `.env` file in the `frontend` directory:
 ```env
 VITE_API_BASE_URL=http://localhost:8080
+VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
 ```
 3. Install dependencies and start the development server:
 ```bash

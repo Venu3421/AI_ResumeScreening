@@ -158,6 +158,9 @@ async def evaluate_answer(
 
     audio_bytes = await file.read()
     mime_type = file.content_type or "audio/webm"
+    if mime_type.startswith("video/"):
+        logger.info(f"Mapping video mime type {mime_type} to audio equivalent for audio-only evaluation.")
+        mime_type = mime_type.replace("video/", "audio/", 1)
     logger.info(f"Audio file received: {file.filename}, size: {len(audio_bytes)} bytes, type: {mime_type}")
 
     try:

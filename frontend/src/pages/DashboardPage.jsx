@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -7,12 +7,11 @@ import Navbar from '../components/Navbar';
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  const [stats, setStats] = useState({ 
-    totalInterviews: 12, 
-    avgScore: 78, 
-    atsScore: 82, 
-    technicalAccuracy: 84 
+  const [stats, setStats] = useState({
+    totalInterviews: 12,
+    avgScore: 78,
+    atsScore: 82,
+    technicalAccuracy: 84,
   });
   const [sessions, setSessions] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -24,9 +23,9 @@ export default function DashboardPage() {
         const sessionsData = res.data || [];
         setSessions(sessionsData);
         if (sessionsData.length > 0) {
-          const completed = sessionsData.filter(s => s.status === 'COMPLETED');
+          const completed = sessionsData.filter((session) => session.status === 'COMPLETED');
           const avgScore = completed.length
-            ? Math.round(completed.reduce((a, s) => a + (s.overallScore || 0), 0) / completed.length)
+            ? Math.round(completed.reduce((total, session) => total + (session.overallScore || 0), 0) / completed.length)
             : 78;
           setStats({
             totalInterviews: sessionsData.length,
@@ -35,8 +34,8 @@ export default function DashboardPage() {
             technicalAccuracy: 84,
           });
         }
-      } catch (err) {
-        // silently fallback to mockup values
+      } catch {
+        // Keep polished demo data available when the backend is offline.
       } finally {
         setLoadingStats(false);
       }
@@ -47,308 +46,209 @@ export default function DashboardPage() {
   const readinessScore = stats.avgScore;
   const circumference = 440;
   const strokeOffset = circumference - (circumference * readinessScore) / 100;
+  const firstName = user?.name?.split(' ')[0] || 'Candidate';
 
-  // Fallback default list if no sessions recorded yet
   const displaySessions = sessions.length > 0 ? sessions.slice(0, 5) : [
     { id: 'mock-1', jobDescription: 'Technical Mock (React/FE)', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 82, status: 'COMPLETED' },
     { id: 'mock-2', jobDescription: 'Behavioral Assessment', createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 76, status: 'COMPLETED' },
-    { id: 'mock-3', jobDescription: 'Resume ATS Scan', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 89, status: 'COMPLETED' }
+    { id: 'mock-3', jobDescription: 'Resume ATS Scan', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 89, status: 'COMPLETED' },
+  ];
+
+  const quickActions = [
+    { title: 'Analyze Resume', copy: 'Upload a PDF and compare it with a target role.', icon: 'upload_file', tone: 'bg-blue-50 text-primary', to: '/resume', cta: 'Scan resume' },
+    { title: 'Mock Interview', copy: 'Practice role-specific answers with voice feedback.', icon: 'mic', tone: 'bg-indigo-50 text-secondary', to: '/interview', cta: 'Start practice' },
+    { title: 'Review Progress', copy: 'Compare transcripts, scores, and coaching notes.', icon: 'analytics', tone: 'bg-violet-50 text-tertiary', to: '/history', cta: 'Open reports' },
+  ];
+
+  const statCards = [
+    { label: 'Total interviews', value: stats.totalInterviews, note: '+2 this week', tone: 'text-emerald-600' },
+    { label: 'Average score', value: `${stats.avgScore}%`, note: '+4% trend', tone: 'text-emerald-600' },
+    { label: 'ATS score', value: `${stats.atsScore}%`, note: 'Role ready', tone: 'text-primary' },
+    { label: 'Technical accuracy', value: `${stats.technicalAccuracy}%`, note: 'Top band', tone: 'text-secondary' },
   ];
 
   return (
-    <div className="bg-background text-on-surface font-body-md overflow-x-hidden min-h-screen">
+    <div className="min-h-screen bg-background text-on-surface">
       <Navbar />
-      
-      <main className="max-w-container-max mx-auto px-margin-desktop pt-32 pb-section-gap">
-        {/* Hero Section & Score */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-gutter mb-section-gap">
-          <div className="lg:col-span-2 flex flex-col justify-center">
-            <h1 className="font-display text-display text-on-surface mb-2">
-              Welcome back, {user?.name?.split(' ')[0] || 'Alex'}!
-            </h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant mb-stack-lg">
-              You're making great progress. Your readiness score is up by 5% this week.
-            </p>
-            <div className="bg-surface-container-lowest p-stack-lg rounded-2xl border border-outline-variant/30 flex items-center justify-between">
+      <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-28 sm:px-6 lg:px-10">
+        <section className="mb-8 grid gap-6 lg:grid-cols-[1.45fr_0.75fr]">
+          <div className="app-card overflow-hidden rounded-[28px] p-6 sm:p-8 lg:p-10">
+            <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h3 className="font-headline-md text-headline-md mb-1">Today's Progress</h3>
-                <p className="font-label-md text-label-md text-on-surface-variant">Finish technical mock interview to hit daily goal</p>
+                <p className="mb-3 inline-flex rounded-full bg-primary-container px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-on-primary-container">Command center</p>
+                <h1 className="text-display text-slate-950">Welcome back, {firstName}.</h1>
+                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">Your interview workspace is ready. Keep your resume, mock answers, and coaching feedback moving in the same direction.</p>
               </div>
-              <div className="hidden sm:flex items-center gap-4">
-                <div className="w-48 h-3 bg-surface-container rounded-full overflow-hidden">
-                  <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${readinessScore}%` }}></div>
+              <button
+                type="button"
+                onClick={() => navigate('/interview')}
+                className="gradient-primary inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-extrabold shadow-lg shadow-primary/20"
+              >
+                Start practice
+                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+              </button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {statCards.map((stat) => (
+                <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-[0.13em] text-slate-500">{stat.label}</p>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="text-3xl font-extrabold text-slate-950">{loadingStats ? 'Loading' : stat.value}</p>
+                    <p className={`text-sm font-bold ${stat.tone}`}>{stat.note}</p>
+                  </div>
                 </div>
-                <span className="font-label-md text-label-md text-primary font-bold">{readinessScore}%</span>
-              </div>
+              ))}
             </div>
           </div>
-          
-          <div className="glass-card p-stack-lg rounded-3xl flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-tertiary/5 pointer-events-none"></div>
-            <h3 className="font-label-sm text-label-sm uppercase text-on-surface-variant mb-stack-md">Interview Readiness Score</h3>
-            <div className="relative w-40 h-40">
-              <svg className="w-full h-full -rotate-90">
-                <circle className="text-surface-container-high" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="12"></circle>
-                <circle className="progress-circle transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" 
-                  stroke="url(#gradient)" strokeDasharray={circumference} strokeDashoffset={strokeOffset} strokeLinecap="round" strokeWidth="12"></circle>
+
+          <div className="app-card rounded-[28px] p-6 text-center sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Readiness score</p>
+            <div className="relative mx-auto my-6 h-44 w-44">
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 160 160">
+                <circle className="text-slate-200" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="12" />
+                <circle className="progress-circle" cx="80" cy="80" fill="transparent" r="70" stroke="url(#dashboardScore)" strokeDasharray={circumference} strokeDashoffset={strokeOffset} strokeLinecap="round" strokeWidth="12" />
                 <defs>
-                  <linearGradient id="gradient" x1="0%" x2="100%" y1="0%" y2="100%">
-                    <stop offset="0%" stopColor="#004ac6"></stop>
-                    <stop offset="100%" stopColor="#632ecd"></stop>
+                  <linearGradient id="dashboardScore" x1="0%" x2="100%" y1="0%" y2="100%">
+                    <stop offset="0%" stopColor="#0f5bd8" />
+                    <stop offset="100%" stopColor="#7c3aed" />
                   </linearGradient>
                 </defs>
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="font-headline-lg text-headline-lg text-primary">{readinessScore}%</span>
+              <div className="absolute inset-0 grid place-items-center">
+                <span className="text-4xl font-extrabold text-slate-950">{readinessScore}%</span>
               </div>
             </div>
-            <p className="mt-4 font-label-md text-label-md text-tertiary font-medium">
-              {readinessScore >= 80 ? 'Expert Level' : readinessScore >= 60 ? 'Intermediate' : 'Developing'}
-            </p>
-          </div>
-        </section>
-
-        {/* Quick Actions */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-section-gap">
-          <div onClick={() => navigate('/resume')} className="glass-card p-stack-md rounded-2xl hover:shadow-md transition-shadow group cursor-pointer">
-            <div className="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center text-primary mb-4">
-              <span className="material-symbols-outlined">upload_file</span>
-            </div>
-            <h4 className="font-headline-md text-headline-md mb-2">Upload Resume</h4>
-            <p className="font-body-md text-body-md text-on-surface-variant mb-4">Get AI-driven ATS optimization and feedback in seconds.</p>
-            <span className="text-primary font-label-md text-label-md flex items-center gap-1 group-hover:gap-2 transition-all">
-              Start Scanning <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </span>
-          </div>
-
-          <div onClick={() => navigate('/interview')} className="glass-card p-stack-md rounded-2xl hover:shadow-md transition-shadow group cursor-pointer border border-primary/10">
-            <div className="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center text-secondary mb-4">
-              <span className="material-symbols-outlined">psychology</span>
-            </div>
-            <h4 className="font-headline-md text-headline-md mb-2">Start Mock Interview</h4>
-            <p className="font-body-md text-body-md text-on-surface-variant mb-4">Practice with our empathetic AI and get instant feedback.</p>
-            <span className="text-secondary font-label-md text-label-md flex items-center gap-1 group-hover:gap-2 transition-all">
-              Start Session <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </span>
-          </div>
-
-          <div onClick={() => navigate('/history')} className="glass-card p-stack-md rounded-2xl hover:shadow-md transition-shadow group cursor-pointer">
-            <div className="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center text-tertiary mb-4">
-              <span className="material-symbols-outlined">analytics</span>
-            </div>
-            <h4 className="font-headline-md text-headline-md mb-2">View Reports</h4>
-            <p className="font-body-md text-body-md text-on-surface-variant mb-4">Deep dive into your keyword gaps and tone analysis.</p>
-            <span className="text-tertiary font-label-md text-label-md flex items-center gap-1 group-hover:gap-2 transition-all">
-              Analyze Data <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </span>
-          </div>
-        </section>
-
-        {/* Stats Grid */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-gutter mb-section-gap">
-          <div className="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
-            <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">Total Interviews</p>
-            <div className="flex items-baseline gap-2">
-              <h2 className="font-headline-lg text-headline-lg">{stats.totalInterviews}</h2>
-              <span className="text-emerald-600 font-label-sm text-label-sm">+2 this week</span>
-            </div>
-          </div>
-          <div className="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
-            <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">Avg. Score</p>
-            <div className="flex items-baseline gap-2">
-              <h2 className="font-headline-lg text-headline-lg">{stats.avgScore}%</h2>
-              <span className="text-emerald-600 font-label-sm text-label-sm">+4%</span>
-            </div>
-          </div>
-          <div className="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
-            <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">ATS Score</p>
-            <div className="flex items-baseline gap-2">
-              <h2 className="font-headline-lg text-headline-lg">{stats.atsScore}%</h2>
-              <span className="text-on-surface-variant font-label-sm text-label-sm">Optimal</span>
-            </div>
-          </div>
-          <div className="bg-surface-container-lowest p-stack-md rounded-2xl border border-outline-variant/20 shadow-sm">
-            <p className="font-label-sm text-label-sm text-on-surface-variant mb-1">Technical Accuracy</p>
-            <div className="flex items-baseline gap-2">
-              <h2 className="font-headline-lg text-headline-lg">{stats.technicalAccuracy}%</h2>
-              <span className="text-primary font-label-sm text-label-sm">Top 10%</span>
+            <p className="text-sm font-semibold text-slate-600">{readinessScore >= 80 ? 'Strong interview posture' : readinessScore >= 60 ? 'Solid, with room to sharpen' : 'Practice plan recommended'}</p>
+            <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-left">
+              <div className="mb-2 flex justify-between text-sm font-bold text-slate-700"><span>Daily goal</span><span>{readinessScore}%</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-primary" style={{ width: `${readinessScore}%` }} /></div>
             </div>
           </div>
         </section>
 
-        {/* Charts Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-gutter mb-section-gap">
-          {/* Weekly Performance */}
-          <div className="bg-surface-container-lowest p-stack-lg rounded-3xl border border-outline-variant/20 shadow-sm h-96 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline-md text-headline-md">Weekly Performance</h3>
-              <select className="bg-surface-container-low border-none rounded-lg font-label-sm text-label-sm focus:ring-primary py-1 px-3 outline-none cursor-pointer">
-                <option>Last 7 Days</option>
-                <option>Last 30 Days</option>
+        <section className="mb-8 grid gap-5 md:grid-cols-3">
+          {quickActions.map((action) => (
+            <button
+              key={action.title}
+              type="button"
+              onClick={() => navigate(action.to)}
+              className="group app-card rounded-[24px] p-6 text-left transition-transform hover:-translate-y-1"
+            >
+              <span className={`mb-5 grid h-12 w-12 place-items-center rounded-2xl ${action.tone}`}>
+                <span className="material-symbols-outlined">{action.icon}</span>
+              </span>
+              <h2 className="text-xl font-extrabold text-slate-950">{action.title}</h2>
+              <p className="mt-2 min-h-12 text-sm leading-6 text-slate-600">{action.copy}</p>
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-extrabold text-primary">
+                {action.cta}
+                <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+              </span>
+            </button>
+          ))}
+        </section>
+
+        <section className="mb-8 grid gap-6 lg:grid-cols-2">
+          <div className="app-card rounded-[28px] p-6 sm:p-8">
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-950">Weekly performance</h2>
+                <p className="mt-1 text-sm text-slate-500">Interview readiness trend</p>
+              </div>
+              <select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 outline-none focus:border-primary">
+                <option>Last 7 days</option>
+                <option>Last 30 days</option>
               </select>
             </div>
-            
-            <div className="flex-grow relative flex items-end gap-4 pb-4">
-              {/* Dynamic Line Chart Mock */}
-              <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 100">
-                <path d="M0,80 Q50,70 100,50 T200,60 T300,30 T400,10" fill="none" stroke="url(#lineGradient)" strokeLinecap="round" strokeWidth="3"></path>
-                <path d="M0,80 Q50,70 100,50 T200,60 T300,30 T400,10 L400,100 L0,100 Z" fill="url(#areaGradient)" />
+            <div className="relative h-64 rounded-2xl bg-slate-50 p-4">
+              <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 420 180">
+                <path d="M0,142 C55,125 66,96 120,101 C168,106 170,133 215,120 C262,107 270,70 325,72 C366,74 385,38 420,26" fill="none" stroke="url(#lineGradient)" strokeLinecap="round" strokeWidth="5" />
+                <path d="M0,142 C55,125 66,96 120,101 C168,106 170,133 215,120 C262,107 270,70 325,72 C366,74 385,38 420,26 L420,180 L0,180 Z" fill="url(#areaGradient)" />
                 <defs>
-                  <linearGradient id="lineGradient" x1="0%" x2="100%" y1="0%" y2="0%">
-                    <stop offset="0%" stopColor="#2563eb"></stop>
-                    <stop offset="100%" stopColor="#7d4ce7"></stop>
-                  </linearGradient>
-                  <linearGradient id="areaGradient" x1="0%" x2="0%" y1="0%" y2="100%">
-                    <stop offset="0%" stopColor="#004ac6" stopOpacity="0.1" />
-                    <stop offset="100%" stopColor="#004ac6" stopOpacity="0" />
-                  </linearGradient>
+                  <linearGradient id="lineGradient" x1="0%" x2="100%"><stop stopColor="#0f5bd8" /><stop offset="100%" stopColor="#7c3aed" /></linearGradient>
+                  <linearGradient id="areaGradient" x1="0%" x2="0%" y1="0%" y2="100%"><stop stopColor="#4f46e5" stopOpacity="0.18" /><stop offset="100%" stopColor="#4f46e5" stopOpacity="0" /></linearGradient>
                 </defs>
               </svg>
-              
-              {/* Floating Data Point */}
-              <div className="absolute w-3 h-3 bg-white border-2 border-primary rounded-full left-1/4 top-1/2 -translate-y-4 shadow-sm group cursor-pointer">
-                <div className="hidden group-hover:block absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-inverse-surface text-white p-2 rounded text-xs whitespace-nowrap">
-                  Score: 78%
-                </div>
-              </div>
             </div>
-            <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant">
+            <div className="mt-4 flex justify-between text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
               <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
             </div>
           </div>
 
-          {/* Skill Improvement */}
-          <div className="bg-surface-container-lowest p-stack-lg rounded-3xl border border-outline-variant/20 shadow-sm h-96 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline-md text-headline-md">Skill Improvement</h3>
-              <div className="flex gap-2">
-                <span className="flex items-center gap-1 font-label-sm text-label-sm">
-                  <div className="w-2 h-2 rounded-full bg-primary"></div> Initial
-                </span>
-                <span className="flex items-center gap-1 font-label-sm text-label-sm">
-                  <div className="w-2 h-2 rounded-full bg-tertiary"></div> Current
-                </span>
-              </div>
+          <div className="app-card rounded-[28px] p-6 sm:p-8">
+            <div className="mb-8">
+              <h2 className="text-2xl font-extrabold text-slate-950">Skill improvement</h2>
+              <p className="mt-1 text-sm text-slate-500">Current score by evaluation dimension</p>
             </div>
-            
-            <div className="flex-grow flex items-end justify-around pb-4">
-              <div className="flex flex-col items-center gap-2 w-full">
-                <div className="flex items-end gap-1 h-48 w-12">
-                  <div className="bg-primary/20 w-1/2 h-[40%] rounded-t-sm"></div>
-                  <div className="bg-tertiary w-1/2 h-[85%] rounded-t-sm transition-all duration-1000"></div>
+            <div className="space-y-5">
+              {[
+                ['Technical logic', 85, 'bg-primary'],
+                ['Communication', 78, 'bg-secondary'],
+                ['Confidence', 90, 'bg-emerald-500'],
+                ['Answer structure', 72, 'bg-amber-500'],
+              ].map(([label, value, color]) => (
+                <div key={label}>
+                  <div className="mb-2 flex justify-between text-sm font-bold text-slate-700"><span>{label}</span><span>{value}%</span></div>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} /></div>
                 </div>
-                <span className="font-label-sm text-label-sm">Logic</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 w-full">
-                <div className="flex items-end gap-1 h-48 w-12">
-                  <div className="bg-primary/20 w-1/2 h-[60%] rounded-t-sm"></div>
-                  <div className="bg-tertiary w-1/2 h-[75%] rounded-t-sm transition-all duration-1000"></div>
-                </div>
-                <span className="font-label-sm text-label-sm">Communication</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 w-full">
-                <div className="flex items-end gap-1 h-48 w-12">
-                  <div className="bg-primary/20 w-1/2 h-[30%] rounded-t-sm"></div>
-                  <div className="bg-tertiary w-1/2 h-[90%] rounded-t-sm transition-all duration-1000"></div>
-                </div>
-                <span className="font-label-sm text-label-sm">Confidence</span>
-              </div>
-              <div className="flex flex-col items-center gap-2 w-full">
-                <div className="flex items-end gap-1 h-48 w-12">
-                  <div className="bg-primary/20 w-1/2 h-[50%] rounded-t-sm"></div>
-                  <div className="bg-tertiary w-1/2 h-[65%] rounded-t-sm transition-all duration-1000"></div>
-                </div>
-                <span className="font-label-sm text-label-sm">Clarity</span>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Recent Activity */}
-        <section>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="font-headline-md text-headline-md">Recent Activity</h3>
-            <button onClick={() => navigate('/history')} className="text-primary font-label-md text-label-md hover:underline transition-all cursor-pointer">
-              View All History
+        <section className="app-card overflow-hidden rounded-[28px]">
+          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <div>
+              <h2 className="text-2xl font-extrabold text-slate-950">Recent activity</h2>
+              <p className="mt-1 text-sm text-slate-500">Latest scans and practice sessions</p>
+            </div>
+            <button type="button" onClick={() => navigate('/history')} className="inline-flex items-center gap-2 text-sm font-extrabold text-primary">
+              View all history <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </div>
-          
-          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/20 shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-surface-container-low font-label-sm text-label-sm text-on-surface-variant">
-                  <th className="px-6 py-4 font-medium uppercase">Session Type</th>
-                  <th className="px-6 py-4 font-medium uppercase">Date</th>
-                  <th className="px-6 py-4 font-medium uppercase">Score</th>
-                  <th className="px-6 py-4 font-medium uppercase">Status</th>
-                  <th className="px-6 py-4 font-medium uppercase text-right">Action</th>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  <th className="px-6 py-4">Session</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Score</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="font-body-md text-body-md divide-y divide-outline-variant/10">
-                {displaySessions.map((sessionItem) => (
-                  <tr key={sessionItem.id} className="hover:bg-surface-container/50 transition-colors">
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-3">
-                        <span className={`material-symbols-outlined ${
-                          sessionItem.jobDescription.includes('Technical') ? 'text-primary' : 
-                          sessionItem.jobDescription.includes('Resume') ? 'text-tertiary' : 'text-secondary'
-                        }`}>
-                          {sessionItem.jobDescription.includes('Technical') ? 'code' : 
-                           sessionItem.jobDescription.includes('Resume') ? 'description' : 'forum'}
-                        </span>
-                        <span>{sessionItem.jobDescription}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-on-surface-variant">
-                      {new Date(sessionItem.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </td>
-                    <td className="px-6 py-5 font-bold">
-                      {sessionItem.overallScore}%
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        sessionItem.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {sessionItem.status === 'COMPLETED' ? 'Completed' : 'Processed'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button onClick={() => navigate(sessionItem.jobDescription.includes('Resume') ? '/resume' : `/history?sessionId=${sessionItem.id}`)}
-                        className="text-primary hover:text-primary-container font-label-md text-label-md cursor-pointer">
-                        {sessionItem.jobDescription.includes('Resume') ? 'View Report' : 'Review Feedback'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {displaySessions.map((sessionItem) => {
+                  const title = sessionItem.jobDescription || 'Interview session';
+                  const isResume = title.includes('Resume');
+                  const isTechnical = title.includes('Technical');
+                  return (
+                    <tr key={sessionItem.id} className="transition-colors hover:bg-slate-50/80">
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <span className={`grid h-10 w-10 place-items-center rounded-xl ${isTechnical ? 'bg-blue-50 text-primary' : isResume ? 'bg-violet-50 text-tertiary' : 'bg-indigo-50 text-secondary'}`}>
+                            <span className="material-symbols-outlined text-[20px]">{isTechnical ? 'code' : isResume ? 'description' : 'forum'}</span>
+                          </span>
+                          <span className="font-bold text-slate-800">{title}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-slate-500">{new Date(sessionItem.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                      <td className="px-6 py-5 font-extrabold text-slate-950">{sessionItem.overallScore}%</td>
+                      <td className="px-6 py-5"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700">{sessionItem.status === 'COMPLETED' ? 'Completed' : 'Processed'}</span></td>
+                      <td className="px-6 py-5 text-right">
+                        <button type="button" onClick={() => navigate(isResume ? '/resume' : `/history?sessionId=${sessionItem.id}`)} className="font-extrabold text-primary hover:underline">
+                          {isResume ? 'View report' : 'Review'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </section>
       </main>
-
-      {/* Footer */}
-      <footer className="w-full py-stack-lg bg-surface-container-lowest border-t border-outline-variant/20">
-        <div className="max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center px-margin-desktop">
-          <div className="mb-4 md:mb-0">
-            <span className="font-headline-md text-headline-md font-bold text-primary">InterviewIQ</span>
-            <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">© 2026 InterviewIQ AI. All rights reserved.</p>
-          </div>
-          <div className="flex flex-wrap gap-6">
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Privacy Policy</a>
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Terms of Service</a>
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Contact Support</a>
-            <a className="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors underline" href="#">Careers</a>
-          </div>
-        </div>
-      </footer>
-
-      {/* AI Floating Action Button */}
-      <button onClick={() => navigate('/interview')} className="fixed bottom-8 right-8 w-16 h-16 rounded-full gradient-btn text-white flex items-center justify-center shadow-2xl z-40 group cursor-pointer">
-        <span className="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform">bolt</span>
-        <div className="absolute right-full mr-4 bg-inverse-surface text-white px-4 py-2 rounded-xl text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          Quick AI Mock Interview
-        </div>
-      </button>
     </div>
   );
 }

@@ -1,23 +1,24 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
-  const [error, setError]       = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const { login, googleLogin }  = useAuth();
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!email || !password) {
       setError('Please fill in all fields.');
       return;
     }
+
     setError(null);
     setLoading(true);
     try {
@@ -43,188 +44,162 @@ export default function LoginPage() {
     }
   };
 
+  const metrics = [
+    { label: 'Resume match lift', value: '+34%' },
+    { label: 'Mock sessions', value: '12k' },
+    { label: 'Avg feedback time', value: '48s' },
+  ];
+
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md overflow-x-hidden flex items-center justify-center relative"
-      style={{
-        backgroundImage: 'radial-gradient(circle at 0% 0%, rgba(99, 46, 205, 0.05) 0%, transparent 40%), radial-gradient(circle at 100% 100%, rgba(0, 74, 198, 0.05) 0%, transparent 40%)'
-      }}>
-      
-      <main className="w-full max-w-container-max px-margin-mobile md:px-margin-desktop py-stack-lg min-h-[921px] flex items-center">
-        {/* Split Layout Container */}
-        <div className="grid grid-cols-1 md:grid-cols-12 w-full glass-card rounded-[2rem] overflow-hidden min-h-[800px]">
-          
-          {/* Left Side: Login Form */}
-          <div className="col-span-1 md:col-span-5 p-stack-lg md:p-16 flex flex-col justify-center">
-            <div className="mb-stack-lg">
-              <div className="flex items-center gap-2 mb-8">
-                <div className="w-10 h-10 primary-gradient rounded-xl flex items-center justify-center text-white">
-                  <span className="material-symbols-outlined text-2xl">psychology</span>
-                </div>
-                <h1 className="font-headline-md text-headline-md font-bold tracking-tight text-primary">InterviewIQ</h1>
-              </div>
-              <h2 className="font-headline-lg text-headline-lg text-on-surface mb-2">Welcome Back</h2>
-              <p className="text-on-surface-variant font-body-md">Login to your AI-powered career assistant.</p>
-            </div>
+    <div className="min-h-screen bg-background px-4 py-6 text-on-surface sm:px-6 lg:px-10">
+      <main className="mx-auto grid min-h-[calc(100vh-48px)] w-full max-w-7xl items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="app-card order-2 overflow-hidden rounded-[28px] p-6 sm:p-8 lg:order-1 lg:p-10">
+          <Link to="/login" className="mb-10 flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-primary via-secondary to-tertiary text-white shadow-lg shadow-primary/20">
+              <span className="material-symbols-outlined">psychology</span>
+            </span>
+            <span>
+              <span className="block text-xl font-extrabold text-slate-950">InterviewIQ</span>
+              <span className="block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">AI Career Coach</span>
+            </span>
+          </Link>
 
-            {error && (
-              <div className="mb-6 p-4 bg-error-container border border-error/20 rounded-xl text-on-error-container font-label-md text-label-md">
-                {error}
-              </div>
-            )}
-
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              {/* Google Login container */}
-              <div className="w-full flex justify-center">
-                <GoogleLogin 
-                  onSuccess={handleGoogleSuccess} 
-                  onError={() => setError('Google Authentication failed.')} 
-                  theme="outline" 
-                  size="large" 
-                  text="signin_with" 
-                  shape="rectangular" 
-                  width="350px" 
-                />
-              </div>
-
-              <div className="relative flex items-center py-2">
-                <div className="flex-grow border-t border-outline-variant/50"></div>
-                <span className="flex-shrink mx-4 text-on-surface-variant text-label-sm font-label-sm uppercase tracking-widest">or login with email</span>
-                <div className="flex-grow border-t border-outline-variant/50"></div>
-              </div>
-
-              {/* Email Input */}
-              <div className="space-y-2">
-                <label className="font-label-md text-on-surface ml-1" htmlFor="email">Email Address</label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">mail</span>
-                  <input 
-                    className="w-full pl-12 pr-4 py-3.5 bg-surface-container-lowest border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
-                    id="email" 
-                    placeholder="alex@company.com" 
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="font-label-md text-on-surface" htmlFor="password">Password</label>
-                  <a className="font-label-sm text-primary hover:underline transition-all" href="#">Forgot password?</a>
-                </div>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">lock</span>
-                  <input 
-                    className="w-full pl-12 pr-4 py-3.5 bg-surface-container-lowest border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
-                    id="password" 
-                    placeholder="••••••••" 
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Remember Me */}
-              <div className="flex items-center gap-3 px-1">
-                <input 
-                  className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary/20" 
-                  id="remember" 
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                />
-                <label className="font-label-md text-on-surface-variant cursor-pointer" htmlFor="remember">Remember me for 30 days</label>
-              </div>
-
-              {/* Login Button */}
-              <button 
-                type="submit"
-                disabled={loading}
-                className="w-full primary-gradient text-white font-headline-md py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                <span>{loading ? 'Signing In...' : 'Sign In to Dashboard'}</span>
-                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-              </button>
-            </form>
-
-            <p className="mt-8 text-center font-body-md text-on-surface-variant">
-              Don't have an account? <Link className="text-primary font-bold hover:underline" to="/register">Create an account</Link>
-            </p>
+          <div className="mb-8">
+            <p className="mb-3 inline-flex rounded-full bg-primary-container px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-on-primary-container">Welcome back</p>
+            <h1 className="text-display mb-3 text-slate-950">Sign in with confidence.</h1>
+            <p className="max-w-md text-base leading-7 text-slate-600">Pick up your resume scans, interview practice, and AI coaching history exactly where you left off.</p>
           </div>
 
-          {/* Right Side: Visual Content */}
-          <div className="hidden md:block md:col-span-7 relative overflow-hidden bg-primary-container">
-            <div className="absolute inset-0 z-0">
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-transparent"></div>
+          {error && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              {error}
             </div>
-            <div className="relative z-10 h-full flex flex-col justify-end p-16 text-white">
-              <div className="max-w-lg">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-6">
-                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                  <span className="font-label-sm">NEW: Gemini 3.5 Integration Live</span>
-                </div>
-                <h3 className="font-display text-display mb-6 leading-tight">Master your next interview with <span className="text-secondary-fixed">precision.</span></h3>
-                <p className="text-body-lg text-white/80 mb-10">Join 50,000+ professionals using InterviewIQ to land offers at top-tier tech companies through personalized AI coaching and real-time analysis.</p>
-                
-                {/* Floating Feedback UI Mockup */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="glass-card p-4 rounded-2xl border-white/10 bg-white/5 backdrop-blur-xl">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-400/20 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-emerald-400 text-lg">check_circle</span>
-                      </div>
-                      <span className="font-label-md text-white">Sentiment Score</span>
-                    </div>
-                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-400 w-[92%]"></div>
-                    </div>
-                    <p className="text-white/60 font-label-sm mt-2">Excellent confidence level</p>
-                  </div>
-                  <div className="glass-card p-4 rounded-2xl border-white/10 bg-white/5 backdrop-blur-xl">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-amber-400 text-lg">graphic_eq</span>
-                      </div>
-                      <span className="font-label-md text-white">Tone Analysis</span>
-                    </div>
-                    <div className="flex gap-1 h-8 items-end">
-                      <div className="w-1 bg-white/40 h-3 rounded-full"></div>
-                      <div className="w-1 bg-white/40 h-6 rounded-full"></div>
-                      <div className="w-1 bg-white h-8 rounded-full"></div>
-                      <div className="w-1 bg-white/60 h-5 rounded-full"></div>
-                      <div className="w-1 bg-white/40 h-4 rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Background Image Layer */}
-            <div className="absolute top-0 right-0 w-full h-full z-[-1]">
-              <div 
-                className="w-full h-full bg-cover bg-center opacity-30" 
-                style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAIwNGWdp5Y4FB5vfAaOVIXvgMLaBCglkr6REvUop5jCyvG7GBI1aqUod2t8XaPJG_fE8KoX_oTXj_OLt6fGaLHzV0zlIEklruGWfJA4sQmgGiLhNMJJymRSux0gHvv1mtwfiPwaFKGlPm-DZ35D_Q8gT1KNaXrg1sQ6VLmneAM03jvk63CWtJje4mW3rEA4GAJvhIOIoaJUh3vhDptIB3fClFeZudL0g5--nS2mAV-jTCvBWGs3Qn3PYP0Xzl4aGZRd8G0z-Dba7g')" }}
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="flex justify-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google Authentication failed.')}
+                theme="outline"
+                size="large"
+                text="signin_with"
+                shape="rectangular"
+                width="320px"
               />
             </div>
+
+            <div className="flex items-center gap-4 py-1">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">or email</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-800" htmlFor="email">Email address</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">mail</span>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="alex@company.com"
+                  required
+                  className="h-13 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-slate-900 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-4">
+                <label className="text-sm font-bold text-slate-800" htmlFor="password">Password</label>
+                <a className="text-sm font-bold text-primary hover:underline" href="#">Forgot password?</a>
+              </div>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">lock</span>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  className="h-13 w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 text-slate-900 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-3 text-sm font-semibold text-slate-600" htmlFor="remember">
+              <input
+                id="remember"
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+                className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary/20"
+              />
+              Remember me for 30 days
+            </label>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="gradient-primary flex h-13 w-full items-center justify-center gap-2 rounded-2xl text-sm font-extrabold shadow-lg shadow-primary/20 disabled:opacity-60"
+            >
+              {loading ? 'Signing in' : 'Sign in to dashboard'}
+              <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+            </button>
+          </form>
+
+          <p className="mt-8 text-center text-sm font-semibold text-slate-600">
+            New to InterviewIQ? <Link className="text-primary hover:underline" to="/register">Create an account</Link>
+          </p>
+        </section>
+
+        <section className="order-1 overflow-hidden rounded-[32px] bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/20 sm:p-8 lg:order-2 lg:min-h-[760px] lg:p-10">
+          <div className="flex h-full flex-col justify-between gap-10">
+            <div>
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/85">
+                <span className="material-symbols-outlined text-[18px] text-emerald-300">auto_awesome</span>
+                Multimodal AI interview readiness
+              </div>
+              <h2 className="max-w-2xl text-4xl font-extrabold leading-tight sm:text-5xl">Turn every application into a focused practice plan.</h2>
+              <p className="mt-5 max-w-xl text-base leading-8 text-slate-300">Analyze the role, sharpen your resume, rehearse technical and behavioral answers, then review coaching feedback in one tidy workspace.</p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {metrics.map((metric) => (
+                <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                  <p className="text-3xl font-extrabold text-white">{metric.value}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-300">{metric.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-white/10 p-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-300">AI readiness snapshot</p>
+                  <p className="text-xs text-slate-400">Resume, clarity, confidence</p>
+                </div>
+                <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-sm font-bold text-emerald-200">Live</span>
+              </div>
+              <div className="space-y-3">
+                {[
+                  ['ATS alignment', '88%', 'bg-emerald-300'],
+                  ['Technical accuracy', '76%', 'bg-blue-300'],
+                  ['Communication clarity', '91%', 'bg-violet-300'],
+                ].map(([label, value, color]) => (
+                  <div key={label}>
+                    <div className="mb-1 flex justify-between text-sm font-semibold text-slate-300"><span>{label}</span><span>{value}</span></div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${color}`} style={{ width: value }} /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          
-        </div>
+        </section>
       </main>
-
-      {/* Footer Links */}
-      <footer className="fixed bottom-8 w-full flex justify-center px-margin-mobile">
-        <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-on-surface-variant font-label-sm">
-          <span>© 2026 InterviewIQ AI</span>
-          <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-          <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
-          <a className="hover:text-primary transition-colors" href="#">Help Center</a>
-        </div>
-      </footer>
-
     </div>
   );
 }

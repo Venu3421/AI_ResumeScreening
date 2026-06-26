@@ -91,3 +91,41 @@ def test_evaluate_answer_success(mock_gemini):
     res_data = response.json()
     assert res_data["transcript"] == "I have used Python for web development."
     assert res_data["evaluation_metrics"]["technicalAccuracy"] == 85
+
+@patch("main.gemini_client")
+def test_evaluate_answer_video_webm_mapping(mock_gemini):
+    mock_response = MagicMock()
+    mock_response.text = """
+    {
+        "transcript": "I designed a high-throughput microservice architecture.",
+        "evaluationMetrics": {
+            "technicalAccuracy": 90,
+            "communicationClarity": 95,
+            "structuralLogic": 88,
+            "constructiveFeedback": "Very detailed."
+        },
+        "nextQuestion": "Tell me about load balancing."
+    }
+    """
+    mock_gemini.models.generate_content.return_value = mock_response
+
+    # Upload with video/webm mime type
+    files = {
+        "file": ("answer.webm", b"mock audio content", "video/webm")
+    }
+    data = {
+        "question_text": "Can you walk me through a system you designed?",
+        "job_description": "System Architect",
+        "question_history": "[]"
+    }
+
+    response = client.post("/api/v1/ai/evaluate-answer", data=data, files=files)
+    assert response.status_code == 200
+    res_data = response.json()
+    assert res_data["transcript"] == "I designed a high-throughput microservice architecture."
+    assert res_data["evaluation_metrics"]["technicalAccuracy"] == 90
+    
+    # Verify that mock was called with 'audio/webm' in contents inline_data instead of 'video/webm'
+    called_contents = mock_gemini.models.generate_content.call_args[1]["contents"]
+    inline_data = called_contents[0]["parts"][1]["inline_data"]
+    assert inline_data["mime_type"] == "audio/webm"
