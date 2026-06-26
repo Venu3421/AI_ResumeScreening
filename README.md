@@ -6,7 +6,7 @@ This project uses a decoupled, three-tier architecture optimized for rapid deplo
 
 *   **Frontend:** React.js (v19+), Vite, TailwindCSS (v4), Axios, HTML5 MediaRecorder API.
 *   **Backend Application Server:** Spring Boot (Java 17), Spring Data JPA, Spring Security (JWT).
-*   **AI Orchestration Microservice:** Python (v3.10+), FastAPI, Google GenAI SDK (Gemini 1.5 Flash free tier).
+*   **AI Orchestration Microservice:** Python (v3.10+), FastAPI, Google GenAI SDK (Gemini 3.5 Flash free tier).
 *   **Database:** PostgreSQL.
 
 ---
