@@ -2,6 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import {
+  initCoach,
+  runInference,
+  resetAggregator,
+  addFrame,
+  getSummary,
+  getCoachingTip,
+  dispose,
+} from '../utils/mediapipeCoach';
 
 const TOTAL_QUESTIONS = 5;
 
@@ -23,6 +32,11 @@ export default function InterviewArenaPage() {
   const [error, setError] = useState(null);
   const [waveHeights, setWaveHeights] = useState(Array(36).fill(14));
 
+  // Camera & MediaPipe state (Phase 4)
+  const [cameraActive, setCameraActive] = useState(false);
+  const [coachingTip, setCoachingTip] = useState(null);
+  const [presenceSummary, setPresenceSummary] = useState(null);
+
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
   const durationRef = useRef(null);
@@ -30,10 +44,26 @@ export default function InterviewArenaPage() {
   const waveRef = useRef(null);
   const navigate = useNavigate();
 
+  // Camera refs (Phase 4)
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const inferenceRef = useRef(null);
+  /** Tracks whether an audio-only stream was created for MediaRecorder cleanup */
+  const audioOnlyStreamRef = useRef(null);
+
+  // ─── Timer effect ────────────────────────────────────────────────────────
   useEffect(() => {
     if (timerActive && timer > 0) {
       timerRef.current = setInterval(() => setTimer((value) => value - 1), 1000);
     } else if (timer === 0 && isRecording && mediaRef.current) {
+      // Timer expired — force-stop recording (including MediaPipe)
+      if (inferenceRef.current) {
+        clearInterval(inferenceRef.current);
+        inferenceRef.current = null;
+      }
+      setPresenceSummary(getSummary());
+      setCoachingTip(null);
+
       mediaRef.current.stop();
       setIsRecording(false);
       clearInterval(durationRef.current);
@@ -43,12 +73,61 @@ export default function InterviewArenaPage() {
     return () => clearInterval(timerRef.current);
   }, [timerActive, timer, isRecording]);
 
+  // ─── Camera lifecycle: start on 'active' phase, cleanup on exit ──────────
+  useEffect(() => {
+    let mounted = true;
+
+    if (phase === 'active') {
+      (async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+            audio: true,
+          });
+          if (!mounted) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          cameraStreamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          setCameraActive(true);
+          // Pre-load the FaceLandmarker model in background
+          initCoach();
+        } catch {
+          // Camera not available or denied — interview proceeds audio-only.
+          // Audio will be requested per-recording in startRecording().
+        }
+      })();
+    }
+
+    return () => {
+      mounted = false;
+      // Cleanup camera and MediaPipe on phase change or unmount
+      if (inferenceRef.current) {
+        clearInterval(inferenceRef.current);
+        inferenceRef.current = null;
+      }
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+        cameraStreamRef.current = null;
+      }
+      setCameraActive(false);
+      setCoachingTip(null);
+      dispose();
+    };
+  }, [phase]);
+
+  // ─── Cleanup all intervals on unmount ────────────────────────────────────
   useEffect(() => () => {
     clearInterval(timerRef.current);
     clearInterval(durationRef.current);
     clearTimeout(waveRef.current);
+    clearInterval(inferenceRef.current);
   }, []);
 
+  // ─── Waveform animation ──────────────────────────────────────────────────
   const animateWave = () => {
     setWaveHeights(Array.from({ length: 36 }, () => Math.random() * 78 + 18));
     waveRef.current = setTimeout(animateWave, 110);
@@ -56,6 +135,7 @@ export default function InterviewArenaPage() {
 
   const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
+  // ─── Start interview ────────────────────────────────────────────────────
   const startInterview = async (event) => {
     event.preventDefault();
     if (!jobDescription.trim() || jobDescription.length < 20) {
@@ -80,36 +160,89 @@ export default function InterviewArenaPage() {
     }
   };
 
+  // ─── Start recording ────────────────────────────────────────────────────
   const startRecording = async () => {
     setError(null);
     setAudioBlob(null);
     chunksRef.current = [];
     setRecordDuration(0);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRef.current = recorder;
+    setPresenceSummary(null);
+    audioOnlyStreamRef.current = null;
 
-      recorder.ondataavailable = (event) => {
-        if (event.data?.size > 0) chunksRef.current.push(event.data);
-      };
+    let audioStream;
 
-      recorder.onstop = () => {
-        setAudioBlob(new Blob(chunksRef.current, { type: 'audio/webm' }));
-        stream.getTracks().forEach((track) => track.stop());
-      };
+    if (cameraStreamRef.current) {
+      // Camera mode: extract audio tracks from the persistent camera stream.
+      // The camera stream stays alive across recordings — don't stop its tracks.
+      const audioTracks = cameraStreamRef.current.getAudioTracks();
+      if (audioTracks.length > 0) {
+        audioStream = new MediaStream(audioTracks);
+      }
+    }
 
-      recorder.start(250);
-      setIsRecording(true);
-      durationRef.current = setInterval(() => setRecordDuration((duration) => duration + 1), 1000);
-      animateWave();
-    } catch {
-      setError('Could not access microphone. Please verify browser recording permissions.');
+    if (!audioStream) {
+      // Audio-only fallback: request microphone separately
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStream = stream;
+        audioOnlyStreamRef.current = stream;
+      } catch {
+        setError('Could not access microphone. Please verify browser recording permissions.');
+        return;
+      }
+    }
+
+    const recorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+    mediaRef.current = recorder;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data?.size > 0) chunksRef.current.push(event.data);
+    };
+
+    recorder.onstop = () => {
+      setAudioBlob(new Blob(chunksRef.current, { type: 'audio/webm' }));
+      // In audio-only mode, stop the standalone audio stream.
+      // In camera mode, audio tracks belong to the persistent camera stream — don't stop them.
+      if (audioOnlyStreamRef.current) {
+        audioOnlyStreamRef.current.getTracks().forEach((track) => track.stop());
+        audioOnlyStreamRef.current = null;
+      }
+    };
+
+    recorder.start(250);
+    setIsRecording(true);
+    durationRef.current = setInterval(() => setRecordDuration((duration) => duration + 1), 1000);
+    animateWave();
+
+    // Start MediaPipe inference loop if camera is active (~3.3 fps / 300ms interval)
+    if (cameraStreamRef.current) {
+      const ready = await initCoach();
+      if (ready) {
+        resetAggregator();
+        inferenceRef.current = setInterval(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            const signals = runInference(videoRef.current);
+            if (signals) {
+              addFrame(signals);
+              setCoachingTip(getCoachingTip(signals));
+            }
+          }
+        }, 300);
+      }
     }
   };
 
+  // ─── Stop recording ──────────────────────────────────────────────────────
   const stopRecording = () => {
     if (mediaRef.current && isRecording) {
+      // Finalize MediaPipe summary before stopping
+      if (inferenceRef.current) {
+        clearInterval(inferenceRef.current);
+        inferenceRef.current = null;
+      }
+      setPresenceSummary(getSummary());
+      setCoachingTip(null);
+
       mediaRef.current.stop();
       setIsRecording(false);
       clearInterval(durationRef.current);
@@ -118,6 +251,7 @@ export default function InterviewArenaPage() {
     }
   };
 
+  // ─── Submit answer ───────────────────────────────────────────────────────
   const submitAnswer = async () => {
     if (!audioBlob) {
       setError('Please record your answer first.');
@@ -136,6 +270,16 @@ export default function InterviewArenaPage() {
     fd.append('sessionId', session.sessionId);
     fd.append('questionText', currentQuestion);
     fd.append('file', audioBlob, 'answer.webm');
+    fd.append('durationSeconds', String(recordDuration));
+
+    // Append camera-derived presence metrics if available (Phase 4).
+    // Only sent when camera was active AND MediaPipe captured enough usable frames.
+    // When absent, backend keeps these fields null (same as audio-only).
+    if (presenceSummary) {
+      fd.append('interviewPresence', String(presenceSummary.interviewPresence));
+      fd.append('eyeContact', String(presenceSummary.eyeContact));
+      fd.append('bodyLanguage', String(presenceSummary.bodyLanguage));
+    }
 
     try {
       const res = await api.post('/api/v1/interview/submit-answer', fd, {
@@ -152,6 +296,7 @@ export default function InterviewArenaPage() {
         setTimer(180);
         setAudioBlob(null);
         setRecordDuration(0);
+        setPresenceSummary(null);
         setTimerActive(true);
       } else {
         setPhase('finished');
@@ -164,20 +309,48 @@ export default function InterviewArenaPage() {
     }
   };
 
-  const technicalScore = lastEval ? lastEval.metrics.technicalAccuracy : 62;
-  const behavioralScore = lastEval ? lastEval.metrics.communicationClarity : 88;
-  const clarityScore = lastEval ? lastEval.metrics.structuralLogic : 74;
-  const overallReadiness = Math.round((technicalScore + behavioralScore + clarityScore) / 3);
+  // ─── Sidebar metric derivation ───────────────────────────────────────────
+  const technicalScore = lastEval?.metrics?.technicalScore;
+  const communicationScore = lastEval?.metrics?.communicationScore;
+  const professionalism = lastEval?.metrics?.professionalism;
+  const confidence = lastEval?.metrics?.confidence;
+  const speakingPace = lastEval?.metrics?.speakingPace;
+  
+  const interviewPresence = lastEval?.metrics?.interviewPresence;
+  const eyeContact = lastEval?.metrics?.eyeContact;
+  const bodyLanguage = lastEval?.metrics?.bodyLanguage;
+
+  let overallReadiness = 0;
+  if (lastEval) {
+      const scores = [technicalScore, communicationScore, professionalism, confidence, speakingPace, interviewPresence, eyeContact, bodyLanguage].filter(s => s != null);
+      if (scores.length > 0) {
+          overallReadiness = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      }
+  }
+
   const circum = 440;
   const strokeOffset = circum - (circum * overallReadiness) / 100;
   const progress = Math.round((questionCount / TOTAL_QUESTIONS) * 100);
 
-  const metrics = [
-    ['Technical accuracy', technicalScore, 'bg-primary'],
-    ['Communication clarity', behavioralScore, 'bg-secondary'],
-    ['Structural logic', clarityScore, 'bg-tertiary'],
-  ];
+  // Core metrics always show (with '—' if no answer submitted yet)
+  const coreMetrics = [
+    ['Technical Score', technicalScore, 'bg-primary'],
+    ['Communication', communicationScore, 'bg-secondary'],
+    ['Professionalism', professionalism, 'bg-tertiary'],
+    ['Confidence', confidence, 'bg-blue-500'],
+    ['Speaking Pace', speakingPace, 'bg-indigo-500'],
+  ].filter(([_, value]) => !lastEval || value != null);
 
+  // Camera metrics only show if they were populated
+  const cameraMetrics = [
+    ['Interview Presence', interviewPresence, 'bg-emerald-500'],
+    ['Eye Contact', eyeContact, 'bg-teal-500'],
+    ['Body Language', bodyLanguage, 'bg-cyan-500']
+  ].filter(([_, value]) => value != null);
+
+  const metrics = [...coreMetrics, ...cameraMetrics];
+
+  // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-on-surface">
       <Navbar />
@@ -253,6 +426,7 @@ export default function InterviewArenaPage() {
                     </div>
                   </div>
 
+                  {/* Recording area with waveform, camera preview, and coaching tip */}
                   <div className={`relative mb-8 flex min-h-72 items-center justify-center rounded-[24px] border border-slate-200 ${isRecording ? 'bg-red-50' : 'bg-slate-50'}`}>
                     <div className="flex h-36 items-center gap-1.5 px-4">
                       {waveHeights.map((height, index) => (
@@ -263,6 +437,30 @@ export default function InterviewArenaPage() {
                       <div className="absolute left-1/2 top-5 flex -translate-x-1/2 items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.12em] text-white shadow-lg">
                         <span className="h-2 w-2 rounded-full bg-white" />
                         Recording {formatTime(recordDuration)}
+                      </div>
+                    )}
+
+                    {/* Camera preview — PiP overlay in bottom-right corner */}
+                    {/* Always rendered during active phase for ref availability; */}
+                    {/* visually hidden via opacity when camera is not active */}
+                    <div className={`absolute bottom-3 right-3 overflow-hidden rounded-2xl border-2 border-white/80 shadow-lg transition-opacity duration-500 ${cameraActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        width={160}
+                        height={120}
+                        className="h-[120px] w-[160px] bg-slate-900 object-cover"
+                        style={{ transform: 'scaleX(-1)' }}
+                      />
+                    </div>
+
+                    {/* Coaching tip pill — bottom-left, only during active recording */}
+                    {isRecording && coachingTip && (
+                      <div className="absolute bottom-3 left-3 flex max-w-[240px] items-center gap-1.5 rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-white shadow-md backdrop-blur-sm transition-opacity duration-500">
+                        <span className="material-symbols-outlined text-[14px] text-amber-400">tips_and_updates</span>
+                        <span>{coachingTip}</span>
                       </div>
                     )}
                   </div>
@@ -330,8 +528,13 @@ export default function InterviewArenaPage() {
               <div className="space-y-5">
                 {metrics.map(([label, value, color]) => (
                   <div key={label}>
-                    <div className="mb-2 flex justify-between text-sm font-bold text-slate-700"><span>{label}</span><span>{value}%</span></div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} /></div>
+                    <div className="mb-2 flex justify-between text-sm font-bold text-slate-700">
+                      <span>{label}</span>
+                      <span>{value != null ? `${value}%` : (lastEval ? 'N/A' : '—')}</span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className={`h-full rounded-full ${value != null ? color : 'bg-slate-200'}`} style={{ width: `${value != null ? value : 0}%` }} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -359,4 +562,3 @@ export default function InterviewArenaPage() {
     </div>
   );
 }
-

@@ -34,8 +34,14 @@ public class InterviewController {
             @RequestParam("sessionId") Long sessionId,
             @RequestParam("questionText") String questionText,
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "durationSeconds", required = false) Integer durationSeconds,
+            @RequestParam(value = "interviewPresence", required = false) Integer interviewPresence,
+            @RequestParam(value = "eyeContact", required = false) Integer eyeContact,
+            @RequestParam(value = "bodyLanguage", required = false) Integer bodyLanguage,
             Principal principal) {
-        SubmitAnswerResponse response = interviewService.submitAnswer(sessionId, questionText, file, principal.getName());
+        SubmitAnswerResponse response = interviewService.submitAnswer(
+                sessionId, questionText, file, principal.getName(),
+                durationSeconds, interviewPresence, eyeContact, bodyLanguage);
         return ResponseEntity.ok(response);
     }
 

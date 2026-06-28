@@ -3,6 +3,7 @@ Pydantic models for resume analysis request and response payloads.
 Enforces strict validation on all incoming and outgoing data.
 """
 
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field
 from typing import List
 

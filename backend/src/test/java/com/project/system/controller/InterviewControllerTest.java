@@ -82,15 +82,17 @@ public class InterviewControllerTest {
                 .logId(200L)
                 .transcript("Java is OOP")
                 .evaluationMetrics(EvaluationMetricsDto.builder()
-                        .technicalAccuracy(85)
-                        .communicationClarity(90)
-                        .structuralLogic(80)
+                        .technicalScore(85)
+                        .communicationScore(90)
+                        .professionalism(95)
+                        .confidence(80)
+                        .speakingPace(75)
                         .constructiveFeedback("Good job")
                         .build())
                 .nextQuestion("What is Spring?")
                 .build();
 
-        when(interviewService.submitAnswer(eq(100L), eq("What is Java?"), any(), eq("john@example.com"))).thenReturn(response);
+        when(interviewService.submitAnswer(eq(100L), eq("What is Java?"), any(), eq("john@example.com"), any(), any(), any(), any())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/interview/submit-answer")
                         .file(file)

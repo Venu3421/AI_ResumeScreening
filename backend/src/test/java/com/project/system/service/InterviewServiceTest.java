@@ -121,9 +121,10 @@ public class InterviewServiceTest {
         aiResponseMap.put("transcript", "Java is a programming language");
         
         Map<String, Object> metrics = new HashMap<>();
-        metrics.put("technicalAccuracy", 80);
-        metrics.put("communicationClarity", 90);
-        metrics.put("structuralLogic", 85);
+        metrics.put("technicalScore", 80);
+        metrics.put("communicationScore", 90);
+        metrics.put("professionalism", 85);
+        metrics.put("confidence", 80);
         metrics.put("constructiveFeedback", "Good response");
         aiResponseMap.put("evaluation_metrics", metrics);
         aiResponseMap.put("next_question", "What is Spring?");
@@ -132,11 +133,11 @@ public class InterviewServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(objectMapper.writeValueAsString(aiResponseMap), MediaType.APPLICATION_JSON));
 
-        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "What is Java?", audioFile, userEmail);
+        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "What is Java?", audioFile, userEmail, null, null, null, null);
 
         assertNotNull(response);
         assertEquals("Java is a programming language", response.getTranscript());
-        assertEquals(80, response.getEvaluationMetrics().getTechnicalAccuracy());
+        assertEquals(80, response.getEvaluationMetrics().getTechnicalScore());
         assertEquals("What is Spring?", response.getNextQuestion());
 
         verify(logRepository, times(2)).save(any(QuestionAnswerLog.class));
@@ -183,9 +184,10 @@ public class InterviewServiceTest {
         aiResponseMap.put("transcript", "Answer 5");
         
         Map<String, Object> metrics = new HashMap<>();
-        metrics.put("technicalAccuracy", 90);
-        metrics.put("communicationClarity", 90);
-        metrics.put("structuralLogic", 90);
+        metrics.put("technicalScore", 90);
+        metrics.put("communicationScore", 90);
+        metrics.put("professionalism", 90);
+        metrics.put("confidence", 90);
         metrics.put("constructiveFeedback", "Great end");
         aiResponseMap.put("evaluation_metrics", metrics);
         aiResponseMap.put("next_question", null);
@@ -194,7 +196,7 @@ public class InterviewServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(objectMapper.writeValueAsString(aiResponseMap), MediaType.APPLICATION_JSON));
 
-        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "Question 5", audioFile, userEmail);
+        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "Question 5", audioFile, userEmail, null, null, null, null);
 
         assertNotNull(response);
         assertNull(response.getNextQuestion());

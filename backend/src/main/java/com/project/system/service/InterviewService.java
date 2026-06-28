@@ -58,6 +58,94 @@ public class InterviewService {
         this.restTemplate = new RestTemplate();
     }
 
+    // ==================== Backward-Compatibility: Legacy Metrics Translation ====================
+
+    /**
+     * ONE-TIME BACKWARD-COMPATIBILITY TRANSLATION (Phase 3).
+     *
+     * <p>Translates legacy metrics_json rows (containing old keys: technicalAccuracy,
+     * communicationClarity, structuralLogic) into the new EvaluationMetricsDto schema.
+     * This is NOT a permanent dual-schema pattern — it exists only to support old session
+     * data until those rows are no longer relevant, at which point this method can be removed.
+     *
+     * <p>Translation rules:
+     * <ul>
+     *   <li>technicalScore = average(technicalAccuracy, structuralLogic) — folds structural logic into technical</li>
+     *   <li>communicationScore = communicationClarity — direct mapping</li>
+     *   <li>New fields (professionalism, confidence, speakingPace, camera fields) → null</li>
+     *   <li>constructiveFeedback → carried forward as-is</li>
+     * </ul>
+     *
+     * <p>Detection: a row is considered "legacy" if it has a "technicalAccuracy" key but no "technicalScore" key.
+     *
+     * @param metricsJson the raw JSON string from question_answer_logs.metrics_json
+     * @return EvaluationMetricsDto populated from either new or legacy schema, or null if unparseable
+     */
+    @SuppressWarnings("unchecked")
+    private EvaluationMetricsDto translateLegacyMetrics(String metricsJson) {
+        if (metricsJson == null || metricsJson.isBlank()) {
+            return null;
+        }
+
+        try {
+            Map<String, Object> raw = objectMapper.readValue(metricsJson, Map.class);
+
+            // Detect legacy schema: has old key "technicalAccuracy" but not new key "technicalScore"
+            boolean isLegacy = raw.containsKey("technicalAccuracy") && !raw.containsKey("technicalScore");
+
+            if (isLegacy) {
+                // Legacy row translation
+                Integer technicalAccuracy = toInteger(raw.get("technicalAccuracy"));
+                Integer structuralLogic = toInteger(raw.get("structuralLogic"));
+                Integer communicationClarity = toInteger(raw.get("communicationClarity"));
+                String feedback = raw.get("constructiveFeedback") != null
+                        ? raw.get("constructiveFeedback").toString() : "";
+
+                // technicalScore = average of old technicalAccuracy and structuralLogic
+                Integer technicalScore = null;
+                if (technicalAccuracy != null && structuralLogic != null) {
+                    technicalScore = (int) Math.round((technicalAccuracy + structuralLogic) / 2.0);
+                } else if (technicalAccuracy != null) {
+                    technicalScore = technicalAccuracy;
+                } else if (structuralLogic != null) {
+                    technicalScore = structuralLogic;
+                }
+
+                return EvaluationMetricsDto.builder()
+                        .technicalScore(technicalScore)
+                        .communicationScore(communicationClarity)
+                        .professionalism(null)      // Not available in legacy data
+                        .confidence(null)            // Not available in legacy data
+                        .constructiveFeedback(feedback)
+                        .speakingPace(null)           // Not available in legacy data
+                        .interviewPresence(null)      // Phase 4
+                        .eyeContact(null)             // Phase 4
+                        .bodyLanguage(null)            // Phase 4
+                        .build();
+            } else {
+                // New schema row — deserialize directly (JsonIgnoreProperties handles unknowns)
+                return objectMapper.readValue(metricsJson, EvaluationMetricsDto.class);
+            }
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Safely convert a Map value to Integer, handling both Integer and Double types
+     * that Jackson may produce when deserializing JSON numbers into a generic Map.
+     */
+    private Integer toInteger(Object value) {
+        if (value instanceof Integer) {
+            return (Integer) value;
+        } else if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return null;
+    }
+
+    // ==================== Session Management ====================
+
     @Transactional
     public InterviewStartResponse startSession(String jobDescription, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
@@ -109,7 +197,12 @@ public class InterviewService {
     }
 
     @Transactional
-    public SubmitAnswerResponse submitAnswer(Long sessionId, String questionText, MultipartFile audioFile, String userEmail) {
+    public SubmitAnswerResponse submitAnswer(Long sessionId, String questionText,
+                                              MultipartFile audioFile, String userEmail,
+                                              Integer durationSeconds,
+                                              Integer interviewPresence,
+                                              Integer eyeContact,
+                                              Integer bodyLanguage) {
         // 1. Find and Verify Session
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview session not found: " + sessionId));
@@ -166,6 +259,10 @@ public class InterviewService {
         body.add("question_text", questionText);
         body.add("job_description", session.getJobDescription());
         body.add("question_history", questionHistoryJson);
+        // Forward client-measured recording duration to ai-service for speaking pace calculation
+        if (durationSeconds != null) {
+            body.add("duration_seconds", String.valueOf(durationSeconds));
+        }
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
         AiEvaluationResponse aiResponse;
@@ -185,9 +282,17 @@ public class InterviewService {
                 .findFirst()
                 .orElseThrow(() -> new BadRequestException("Question log not found or already evaluated: " + questionText));
 
+        // Merge frontend-supplied camera presence metrics (Phase 4) into the
+        // ai-service response before storing. The ai-service returns these as null;
+        // the frontend overwrites them when camera data is available.
+        Map<String, Object> metricsToStore = new java.util.LinkedHashMap<>(aiResponse.getEvaluationMetrics());
+        if (interviewPresence != null) metricsToStore.put("interviewPresence", interviewPresence);
+        if (eyeContact != null) metricsToStore.put("eyeContact", eyeContact);
+        if (bodyLanguage != null) metricsToStore.put("bodyLanguage", bodyLanguage);
+
         String metricsJsonStr;
         try {
-            metricsJsonStr = objectMapper.writeValueAsString(aiResponse.getEvaluationMetrics());
+            metricsJsonStr = objectMapper.writeValueAsString(metricsToStore);
         } catch (JsonProcessingException e) {
             throw new BadRequestException("Failed to serialize evaluation metrics: " + e.getMessage());
         }
@@ -204,19 +309,27 @@ public class InterviewService {
             // Complete Session
             session.setStatus("COMPLETED");
 
-            // Calculate Overall Score
+            // Calculate Overall Score using the new metrics schema
             List<QuestionAnswerLog> finalLogs = logRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
             double totalScoreSum = 0;
             int logsWithScore = 0;
 
             for (QuestionAnswerLog log : finalLogs) {
                 if (log.getMetricsJson() != null) {
-                    try {
-                        EvaluationMetricsDto metrics = objectMapper.readValue(log.getMetricsJson(), EvaluationMetricsDto.class);
-                        double avgLogScore = (metrics.getTechnicalAccuracy() + metrics.getCommunicationClarity() + metrics.getStructuralLogic()) / 3.0;
-                        totalScoreSum += avgLogScore;
-                        logsWithScore++;
-                    } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+                    // Use translateLegacyMetrics to handle both old and new row formats
+                    EvaluationMetricsDto metrics = translateLegacyMetrics(log.getMetricsJson());
+                    if (metrics != null) {
+                        // Average of technicalScore and communicationScore (the two primary Gemini scores)
+                        Integer tech = metrics.getTechnicalScore();
+                        Integer comm = metrics.getCommunicationScore();
+                        int scoreCount = 0;
+                        double scoreSum = 0;
+                        if (tech != null) { scoreSum += tech; scoreCount++; }
+                        if (comm != null) { scoreSum += comm; scoreCount++; }
+                        if (scoreCount > 0) {
+                            totalScoreSum += scoreSum / scoreCount;
+                            logsWithScore++;
+                        }
                     }
                 }
             }
@@ -237,13 +350,18 @@ public class InterviewService {
             logRepository.save(nextLog);
         }
 
-        // Map evaluationMetrics map to EvaluationMetricsDto
-        Map<String, Object> metricsMap = aiResponse.getEvaluationMetrics();
+        // Map merged metrics (ai-service + camera data) to EvaluationMetricsDto for the response
         EvaluationMetricsDto metricsDto = EvaluationMetricsDto.builder()
-                .technicalAccuracy((Integer) metricsMap.get("technicalAccuracy"))
-                .communicationClarity((Integer) metricsMap.get("communicationClarity"))
-                .structuralLogic((Integer) metricsMap.get("structuralLogic"))
-                .constructiveFeedback((String) metricsMap.get("constructiveFeedback"))
+                .technicalScore(toInteger(metricsToStore.get("technicalScore")))
+                .communicationScore(toInteger(metricsToStore.get("communicationScore")))
+                .professionalism(toInteger(metricsToStore.get("professionalism")))
+                .confidence(toInteger(metricsToStore.get("confidence")))
+                .constructiveFeedback(metricsToStore.get("constructiveFeedback") != null
+                        ? metricsToStore.get("constructiveFeedback").toString() : "")
+                .speakingPace(toInteger(metricsToStore.get("speakingPace")))
+                .interviewPresence(toInteger(metricsToStore.get("interviewPresence")))
+                .eyeContact(toInteger(metricsToStore.get("eyeContact")))
+                .bodyLanguage(toInteger(metricsToStore.get("bodyLanguage")))
                 .build();
 
         return SubmitAnswerResponse.builder()
@@ -283,13 +401,8 @@ public class InterviewService {
         List<QuestionAnswerLog> logs = logRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
         List<QuestionAnswerLogDto> logDtos = logs.stream()
                 .map(l -> {
-                    EvaluationMetricsDto metricsDto = null;
-                    if (l.getMetricsJson() != null) {
-                        try {
-                            metricsDto = objectMapper.readValue(l.getMetricsJson(), EvaluationMetricsDto.class);
-                        } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
-                        }
-                    }
+                    // Use translateLegacyMetrics to handle both old and new metrics_json formats
+                    EvaluationMetricsDto metricsDto = translateLegacyMetrics(l.getMetricsJson());
                     return QuestionAnswerLogDto.builder()
                             .id(l.getId())
                             .questionText(l.getQuestionText())

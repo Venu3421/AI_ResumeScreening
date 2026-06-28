@@ -162,12 +162,17 @@ export default function HistoryPage() {
 
                               {log.evaluationMetrics && (
                                 <>
-                                  <div className="grid gap-3 sm:grid-cols-3">
+                                  <div className="grid gap-3 sm:grid-cols-4">
                                     {[
-                                      ['Technical', log.evaluationMetrics.technicalAccuracy, 'text-primary bg-blue-50'],
-                                      ['Clarity', log.evaluationMetrics.communicationClarity, 'text-secondary bg-indigo-50'],
-                                      ['Logic', log.evaluationMetrics.structuralLogic, 'text-tertiary bg-violet-50'],
-                                    ].map(([label, value, tone]) => (
+                                      ['Technical', log.evaluationMetrics.technicalScore, 'text-primary bg-blue-50'],
+                                      ['Communication', log.evaluationMetrics.communicationScore, 'text-secondary bg-indigo-50'],
+                                      ['Professionalism', log.evaluationMetrics.professionalism, 'text-tertiary bg-violet-50'],
+                                      ['Confidence', log.evaluationMetrics.confidence, 'text-blue-700 bg-blue-50'],
+                                      ['Pace', log.evaluationMetrics.speakingPace, 'text-indigo-700 bg-indigo-50'],
+                                      ['Presence', log.evaluationMetrics.interviewPresence, 'text-emerald-700 bg-emerald-50'],
+                                      ['Eye Contact', log.evaluationMetrics.eyeContact, 'text-teal-700 bg-teal-50'],
+                                      ['Body Language', log.evaluationMetrics.bodyLanguage, 'text-cyan-700 bg-cyan-50'],
+                                    ].filter(item => item[1] != null).map(([label, value, tone]) => (
                                       <div key={label} className={`rounded-2xl p-4 text-center ${tone}`}>
                                         <p className="text-xs font-bold uppercase tracking-[0.12em] opacity-75">{label}</p>
                                         <p className="mt-1 text-2xl font-extrabold">{value}%</p>
