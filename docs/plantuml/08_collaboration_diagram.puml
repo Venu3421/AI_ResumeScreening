@@ -1,0 +1,14 @@
+@startuml
+agent ":Candidate" as C
+agent ":ReactApp" as F
+agent ":BackendServer" as B
+agent ":PostgresDB" as DB
+agent ":AIService" as A
+
+C -> F : 1: submitAnswer()
+F -> B : 2: sendAudioPayload()
+B -> A : 3: evaluateAudioWithGemini()
+A -> B : 4: returnMetrics()
+B -> DB : 5: saveSessionLog()
+B -> F : 6: displayScoreCard()
+@enduml

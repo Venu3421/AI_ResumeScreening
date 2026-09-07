@@ -121,6 +121,7 @@ public class InterviewService {
                         .interviewPresence(null)      // Phase 4
                         .eyeContact(null)             // Phase 4
                         .bodyLanguage(null)            // Phase 4
+                        .facialComposure(null)         // Phase 7
                         .build();
             } else {
                 // New schema row — deserialize directly (JsonIgnoreProperties handles unknowns)
@@ -202,7 +203,8 @@ public class InterviewService {
                                               Integer durationSeconds,
                                               Integer interviewPresence,
                                               Integer eyeContact,
-                                              Integer bodyLanguage) {
+                                              Integer bodyLanguage,
+                                              Integer facialComposure) {
         // 1. Find and Verify Session
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview session not found: " + sessionId));
@@ -289,6 +291,7 @@ public class InterviewService {
         if (interviewPresence != null) metricsToStore.put("interviewPresence", interviewPresence);
         if (eyeContact != null) metricsToStore.put("eyeContact", eyeContact);
         if (bodyLanguage != null) metricsToStore.put("bodyLanguage", bodyLanguage);
+        if (facialComposure != null) metricsToStore.put("facialComposure", facialComposure);
 
         String metricsJsonStr;
         try {

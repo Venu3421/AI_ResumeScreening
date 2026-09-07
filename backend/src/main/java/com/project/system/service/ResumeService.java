@@ -56,8 +56,9 @@ public class ResumeService {
             throw new BadRequestException("Uploaded file is empty.");
         }
         String filename = file.getOriginalFilename();
-        if (!"application/pdf".equals(file.getContentType()) && (filename == null || !filename.endsWith(".pdf"))) {
-            throw new BadRequestException("Only PDF resumes are supported.");
+        if (!"application/pdf".equals(file.getContentType()) && (filename == null || !filename.toLowerCase().endsWith(".pdf"))
+            && !filename.toLowerCase().endsWith(".docx") && !filename.toLowerCase().endsWith(".doc") && !filename.toLowerCase().endsWith(".txt")) {
+            throw new BadRequestException("Only PDF, DOC, DOCX, and TXT resumes are supported.");
         }
         if (file.getSize() > 5 * 1024 * 1024) {
             throw new BadRequestException("File size exceeds the 5MB limit.");
@@ -66,24 +67,37 @@ public class ResumeService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
-        // 2. Text Extraction using Apache Tika
-        String resumeText;
-        try {
-            resumeText = tika.parseToString(file.getInputStream());
-            if (resumeText == null || resumeText.trim().isEmpty()) {
-                throw new BadRequestException("Could not extract readable text from the PDF.");
+        // 2. Text Extraction (Tika) or PDF forwarding
+        String resumeText = null;
+        boolean isPdf = "application/pdf".equals(file.getContentType()) || (filename != null && filename.toLowerCase().endsWith(".pdf"));
+
+        if (!isPdf) {
+            try {
+                resumeText = tika.parseToString(file.getInputStream());
+                if (resumeText == null || resumeText.trim().isEmpty()) {
+                    throw new BadRequestException("Could not extract readable text from the file.");
+                }
+            } catch (org.apache.tika.exception.TikaException | java.io.IOException e) {
+                throw new BadRequestException("Failed to extract text from file: " + e.getMessage());
             }
-        } catch (org.apache.tika.exception.TikaException | java.io.IOException e) {
-            throw new BadRequestException("Failed to extract text from PDF: " + e.getMessage());
         }
 
         // 3. Call AI Service
         String aiEndpoint = aiServiceUrl + "/api/v1/ai/analyze-resume";
-        AiResumeAnalysisRequest aiRequest = new AiResumeAnalysisRequest(resumeText, jobDescription);
-
+        
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<AiResumeAnalysisRequest> requestEntity = new HttpEntity<>(aiRequest, headers);
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+        body.add("job_description", jobDescription);
+
+        if (isPdf) {
+            body.add("resume_file", file.getResource());
+        } else {
+            body.add("resume_text", resumeText);
+        }
+
+        HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
         AiResumeAnalysisResponse aiResponse;
         try {
@@ -114,7 +128,11 @@ public class ResumeService {
         Resume resume = resumeRepository.findByUserId(user.getId())
                 .orElse(Resume.builder().user(user).build());
 
-        resume.setRawText(resumeText);
+        if (resumeText != null) {
+            resume.setRawText(resumeText);
+        } else {
+            resume.setRawText("PDF Extracted remotely by AI service.");
+        }
         resume.setAtsScore(aiResponse.getAtsScore());
         resume.setFeedbackJson(feedbackJson);
         resume.setUpdatedAt(LocalDateTime.now());
@@ -164,16 +182,7 @@ public class ResumeService {
     }
 
     // Helper classes for AI service communication
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class AiResumeAnalysisRequest {
-        @JsonProperty("resume_text")
-        private String resumeText;
 
-        @JsonProperty("job_description")
-        private String jobDescription;
-    }
 
     @Data
     @NoArgsConstructor

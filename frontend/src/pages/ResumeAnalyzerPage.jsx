@@ -59,6 +59,8 @@ export default function ResumeAnalyzerPage() {
 
   const score = results ? results.atsScore : 0;
   const missingKeywords = results?.missingKeywords || [];
+  const strengths = results?.strengths || [];
+  const weaknesses = results?.weaknesses || [];
   const suggestions = results?.suggestions || [];
 
   return (
@@ -238,11 +240,25 @@ export default function ResumeAnalyzerPage() {
                     <h2 className="text-xl font-extrabold text-slate-950">Detected strengths</h2>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {['Project impact', 'Relevant skills', 'Readable structure', 'Role focus'].map((keyword) => (
+                    {strengths.length > 0 ? strengths.map((keyword) => (
                       <span key={keyword} className="rounded-full bg-blue-50 px-3 py-1.5 text-sm font-bold text-primary">{keyword}</span>
-                    ))}
+                    )) : <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700">No specific strengths highlighted</span>}
                   </div>
                 </div>
+
+                {weaknesses.length > 0 && (
+                  <div className="app-card rounded-[28px] p-6 xl:col-span-2">
+                    <div className="mb-5 flex items-center gap-3">
+                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><span className="material-symbols-outlined text-[20px]">warning</span></span>
+                      <h2 className="text-xl font-extrabold text-slate-950">Identified weaknesses</h2>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {weaknesses.map((keyword) => (
+                        <span key={keyword} className="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800">{keyword}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="app-card rounded-[28px] p-6 sm:p-8">

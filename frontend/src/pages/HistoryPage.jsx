@@ -172,6 +172,7 @@ export default function HistoryPage() {
                                       ['Presence', log.evaluationMetrics.interviewPresence, 'text-emerald-700 bg-emerald-50'],
                                       ['Eye Contact', log.evaluationMetrics.eyeContact, 'text-teal-700 bg-teal-50'],
                                       ['Body Language', log.evaluationMetrics.bodyLanguage, 'text-cyan-700 bg-cyan-50'],
+                                      ['Facial Composure', log.evaluationMetrics.facialComposure, 'text-rose-700 bg-rose-50'],
                                     ].filter(item => item[1] != null).map(([label, value, tone]) => (
                                       <div key={label} className={`rounded-2xl p-4 text-center ${tone}`}>
                                         <p className="text-xs font-bold uppercase tracking-[0.12em] opacity-75">{label}</p>

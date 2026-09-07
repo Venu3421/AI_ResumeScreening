@@ -92,7 +92,7 @@ public class InterviewControllerTest {
                 .nextQuestion("What is Spring?")
                 .build();
 
-        when(interviewService.submitAnswer(eq(100L), eq("What is Java?"), any(), eq("john@example.com"), any(), any(), any(), any())).thenReturn(response);
+        when(interviewService.submitAnswer(eq(100L), eq("What is Java?"), any(), eq("john@example.com"), any(), any(), any(), any(), any())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/interview/submit-answer")
                         .file(file)

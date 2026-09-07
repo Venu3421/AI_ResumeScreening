@@ -38,10 +38,11 @@ public class InterviewController {
             @RequestParam(value = "interviewPresence", required = false) Integer interviewPresence,
             @RequestParam(value = "eyeContact", required = false) Integer eyeContact,
             @RequestParam(value = "bodyLanguage", required = false) Integer bodyLanguage,
+            @RequestParam(value = "facialComposure", required = false) Integer facialComposure,
             Principal principal) {
         SubmitAnswerResponse response = interviewService.submitAnswer(
                 sessionId, questionText, file, principal.getName(),
-                durationSeconds, interviewPresence, eyeContact, bodyLanguage);
+                durationSeconds, interviewPresence, eyeContact, bodyLanguage, facialComposure);
         return ResponseEntity.ok(response);
     }
 

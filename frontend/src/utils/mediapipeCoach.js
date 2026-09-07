@@ -127,6 +127,7 @@ export async function initCoach() {
         },
         runningMode: 'VIDEO',
         numFaces: 1,
+        outputFaceBlendshapes: true,
       });
       isInitialized = true;
       return true;
@@ -191,6 +192,18 @@ export function runInference(videoElement) {
       chin,
     );
 
+    // Phase 7: Extract blendshapes for facial composure
+    const blendshapes = results.faceBlendshapes?.[0]?.categories ?? [];
+    const getBS = (name) => blendshapes.find(b => b.categoryName === name)?.score ?? 0;
+
+    // Composure signals — higher = more tense/stressed
+    const browFurrow = (getBS('browDownLeft') + getBS('browDownRight')) / 2;
+    const jawTension = getBS('jawOpen');
+    const eyeSquint  = (getBS('eyeSquintLeft') + getBS('eyeSquintRight')) / 2;
+    
+    // Engagement signals — higher = more engaged/positive
+    const mouthSmile = (getBS('mouthSmileLeft') + getBS('mouthSmileRight')) / 2;
+
     return {
       faceDetected: true,
       faceCentered,
@@ -198,6 +211,10 @@ export function runInference(videoElement) {
       headPitch: pitch,
       noseX: nose.x,
       noseY: nose.y,
+      browFurrow,
+      jawTension,
+      eyeSquint,
+      mouthSmile,
     };
   } catch (err) {
     console.warn('[MediaPipe Coach] Inference error:', err);
@@ -208,6 +225,12 @@ export function runInference(videoElement) {
 /**
  * Reset per-answer aggregation. Call at recording start.
  */
+// Phase 7: Composure aggregators
+let totalBrowFurrow = 0;
+let totalJawTension = 0;
+let totalEyeSquint = 0;
+let totalMouthSmile = 0;
+
 export function resetAggregator() {
   totalFrames = 0;
   faceDetectedFrames = 0;
@@ -219,6 +242,10 @@ export function resetAggregator() {
   noFaceStreak = 0;
   lastTipText = null;
   lastTipChangeTime = 0;
+  totalBrowFurrow = 0;
+  totalJawTension = 0;
+  totalEyeSquint = 0;
+  totalMouthSmile = 0;
 }
 
 /**
@@ -255,6 +282,14 @@ export function addFrame(signals) {
         (curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2,
       );
       displacements.push(disp);
+    }
+
+    // Phase 7: Composure accumulation
+    if (signals.browFurrow !== undefined) {
+      totalBrowFurrow += signals.browFurrow;
+      totalJawTension += signals.jawTension;
+      totalEyeSquint += signals.eyeSquint;
+      totalMouthSmile += signals.mouthSmile;
     }
   }
 }
@@ -322,10 +357,26 @@ export function getSummary() {
     Math.min(100, 100 - fidgetPenalty - slouchPenalty),
   );
 
+  // Phase 7: facialComposure
+  // composure_score = 100 - (avg_browFurrow * 30) - (avg_jawTension * 20) - (avg_eyeSquint * 15) + (avg_mouthSmile * 15)
+  let facialComposure = null;
+  if (faceDetectedFrames > 0) {
+    const avgBrowFurrow = totalBrowFurrow / faceDetectedFrames;
+    const avgJawTension = totalJawTension / faceDetectedFrames;
+    const avgEyeSquint = totalEyeSquint / faceDetectedFrames;
+    const avgMouthSmile = totalMouthSmile / faceDetectedFrames;
+
+    const baseComposure = 100;
+    // max penalties: brow 30, jaw 20, squint 15, smile bonus 15
+    const score = baseComposure - (avgBrowFurrow * 30) - (avgJawTension * 20) - (avgEyeSquint * 15) + (avgMouthSmile * 15);
+    facialComposure = Math.max(0, Math.min(100, Math.round(score)));
+  }
+
   return {
     interviewPresence: Math.max(0, Math.min(100, interviewPresence)),
     eyeContact: Math.max(0, Math.min(100, eyeContact)),
     bodyLanguage,
+    facialComposure,
   };
 }
 

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InterviewIQ AI — Classic Mermaid Design Presentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+    window.mermaid = mermaid;
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --border-color: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.3);
+      --accent-plantuml: #10b981;
+      --accent-success: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: rgba(17, 24, 39, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.85rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: -0.025em;
+    }
+
+    .badge {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.5rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #374151;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-puml {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #10b981;
+    }
+
+    .btn-puml:hover {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: #10b981;
+      color: #ffffff;
+    }
+
+    .slide-indicator {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      padding: 0 0.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding: 0.5rem 2rem;
+      background: #0d1322;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tab-item {
+      padding: 0.4rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      color: var(--text-secondary);
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab-item:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-item.active {
+      color: #111827;
+      background: #10b981;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+    }
+
+    .presentation-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 105px);
+      overflow: hidden;
+    }
+
+    .diagram-panel {
+      flex: 7;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+      overflow-y: auto;
+      background: radial-gradient(circle at top left, rgba(16, 185, 129, 0.04), transparent 40%),
+                  radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.04), transparent 40%);
+    }
+
+    .notes-panel {
+      flex: 5;
+      border-left: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .slide-header {
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .slide-category {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #10b981;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .slide-title {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .zoom-toolbar {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .btn-icon {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      color: white;
+      border-color: var(--accent-plantuml);
+      background: #374151;
+    }
+
+    .diagram-viewport {
+      background: #111827;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+
+    .diagram-canvas {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transform-origin: center center;
+      transition: transform 0.2s ease;
+    }
+    
+    .markdown-canvas {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      text-align: left;
+      padding: 1rem;
+      line-height: 1.6;
+    }
+    
+    .markdown-canvas h2, .markdown-canvas h3 {
+      color: #10b981;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+    
+    .markdown-canvas table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    
+    .markdown-canvas th, .markdown-canvas td {
+      border: 1px solid var(--border-color);
+      padding: 0.75rem;
+      text-align: left;
+    }
+    
+    .markdown-canvas th {
+      background: rgba(16, 185, 129, 0.1);
+      color: #10b981;
+    }
+    
+    .markdown-canvas a {
+      color: #3b82f6;
+      text-decoration: none;
+    }
+
+    .diagram-canvas svg {
+      max-width: 100%;
+      max-height: 100%;
+      height: auto;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+    }
+
+    .notes-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .notes-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #10b981;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .notes-card p, .notes-card li {
+      font-size: 0.875rem;
+      line-height: 1.6;
+      color: #d1d5db;
+    }
+
+    .notes-card ul {
+      padding-left: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .error-box {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      width: 100%;
+    }
+
+    /* PlantUML Code Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 2rem;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 850px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+
+    .modal-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #10b981;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+      background: #0f172a;
+    }
+
+    .modal-body pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    @media (max-width: 1024px) {
+      .presentation-container {
+        flex-direction: column;
+        height: auto;
+        overflow-y: auto;
+      }
+      .notes-panel {
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>InterviewIQ AI</span>
+      <span class="badge">Mermaid Design Presentation</span>
+    </div>
+    <div class="nav-controls">
+      <button class="btn" id="prevBtn" onclick="prevSlide()">‹ Previous</button>
+      <span class="slide-indicator" id="slideIndicator">Slide 1 / 10</span>
+      <button class="btn btn-primary" id="nextBtn" onclick="nextSlide()">Next ›</button>
+      <button class="btn btn-puml" onclick="openPumlModal()">📄 View Source</button>
+      <button class="btn" onclick="toggleFullScreen()" title="Full Screen (F11)">⛶ Present</button>
+    </div>
+  </header>
+
+  <nav class="tabs-nav" id="tabsNav"></nav>
+
+  <main class="presentation-container">
+
+    <!-- DIAGRAM VIEWPORT PANEL -->
+    <section class="diagram-panel">
+      <div class="slide-header">
+        <div>
+          <div class="slide-category" id="slideCategory">System Architecture</div>
+          <h1 class="slide-title" id="slideTitle">Loading...</h1>
+        </div>
+        <div class="zoom-toolbar">
+          <button class="btn-icon" onclick="zoomIn()" title="Zoom In">+</button>
+          <button class="btn-icon" onclick="zoomOut()" title="Zoom Out">-</button>
+          <button class="btn-icon" onclick="resetZoom()" title="Reset Zoom">⟲</button>
+        </div>
+      </div>
+
+      <div class="diagram-viewport" id="viewport">
+        <!-- Render target -->
+      </div>
+    </section>
+
+    <!-- SPEAKER NOTES & DEFENSE PANEL -->
+    <aside class="notes-panel" id="notesPanel"></aside>
+
+  </main>
+
+  <!-- PLANTUML CODE MODAL -->
+  <div class="modal-overlay" id="pumlModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🌿 Markdown / Mermaid Source Code</span>
+          <span id="modalFileName" style="font-size: 0.8rem; color: #94a3b8; font-weight: normal;"></span>
+        </div>
+        <button class="btn-icon" onclick="closePumlModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <pre id="modalPumlCode"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-puml" id="copyBtn" onclick="copyPumlCode()">📋 Copy Code</button>
+        <button class="btn" onclick="closePumlModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const slidesData = [{"id": "slide_1", "tabLabel": "1. Table of Contents", "category": "General Presentation", "title": "Table of Contents", "summary": "", "architecture": [], "mermaid": "", "raw_markdown": "## Table of Contents\n1. [Class Diagram (Structural)](#1-class-diagram)\n2. [Use Case Diagram (Behavioral)](#2-use-case-diagram)\n3. [Sequence Diagram (Interaction)](#3-sequence-diagram)\n4. [Activity Diagram (Workflow)](#4-activity-diagram)\n5. [Object Diagram (Instance Snapshot)](#5-object-diagram)\n6. [State Chart Diagram (State Machine)](#6-state-chart-diagram)\n7. [Collaboration Diagram (Communication)](#7-collaboration-diagram)\n8. [Component Diagram (Subsystem Architecture)](#8-component-diagram)\n9. [Deployment Diagram (Physical Hardware & Infrastructure)](#9-deployment-diagram)\n10. [Viva / Presentation Defense Guide](#10-viva--presentation-defense-guide)\n\n---\n"}, {"id": "slide_2", "tabLabel": "2. Class Diagram", "category": "Structural Diagram", "title": "1. Class Diagram", "summary": "Illustrates the core domain entities, their key properties, methods, and relationships in a format that balances architectural completeness with readability.", "architecture": ["Core Entities:** `User` is the aggregate root owning `Resume` (1:1) and initiating `InterviewSession` (1:N).", "MVC Pattern:** Controllers like `AuthController` and `InterviewController` manage the incoming requests and manipulate the underlying domain models.", "AI Delegation:** Domain entities delegate AI logic to the stateless `AIService`."], "mermaid": "classDiagram\n    direction TB\n\n    class User {\n        +Long id\n        +String name\n        +String email\n        -String passwordHash\n        +register()\n        +login()\n    }\n\n    class Resume {\n        +Long id\n        +String rawText\n        +Integer atsScore\n        +String feedback\n        +LocalDateTime updatedAt\n        +analyzeResume()\n    }\n\n    class InterviewSession {\n        +Long id\n        +String jobRole\n        +String status\n        +Integer overallScore\n        +startSession()\n        +calculateFinalScore()\n    }\n\n    class QuestionAnswerLog {\n        +Long id\n        +String questionText\n        +String transcript\n        +Integer score\n        +evaluate()\n    }\n\n    class AuthController {\n        +login(request)\n        +register(request)\n    }\n\n    class InterviewController {\n        +startSession(request)\n        +submitAnswer(audio, metrics)\n    }\n\n    class AIService {\n        +screenResume()\n        +evaluateAnswer()\n    }\n\n    User \"1\" *-- \"1\" Resume : owns\n    User \"1\" *-- \"0..*\" InterviewSession : initiates\n    InterviewSession \"1\" *-- \"1..*\" QuestionAnswerLog : contains\n    \n    AuthController ..> User : authenticates\n    InterviewController ..> InterviewSession : manages\n    InterviewSession ..> AIService : evaluates via", "raw_markdown": "## 1. Class Diagram\n### Categorization: Structural Diagram\n### Purpose:\nIllustrates the core domain entities, their key properties, methods, and relationships in a format that balances architectural completeness with readability.\n\n\n\n### Key Presentation Talking Points:\n* **Core Entities:** `User` is the aggregate root owning `Resume` (1:1) and initiating `InterviewSession` (1:N).\n* **MVC Pattern:** Controllers like `AuthController` and `InterviewController` manage the incoming requests and manipulate the underlying domain models.\n* **AI Delegation:** Domain entities delegate AI logic to the stateless `AIService`.\n\n---\n"}, {"id": "slide_3", "tabLabel": "3. Use Case Diagram", "category": "Behavioral Diagram", "title": "2. Use Case Diagram", "summary": "High-level view of core user interactions with the system, standard includes/extends, and integration with the external Gemini AI engine.", "architecture": ["Primary Actor:** Candidate interacts with registration, resume upload, mock interview, and analytics features to self-improve and check their performance.", "UML Stereotypes:** Uses `<<extend>>` for optional OAuth login and `<<include>>` for mandatory AI analysis.", "Automated External Actor:** External Gemini AI performs heavy processing for ATS scoring and answer evaluation."], "mermaid": "graph LR\n    Candidate((\"Candidate / User\"))\n    GeminiAI((\"External Gemini AI\"))\n\n    subgraph System [\"AI Resume & Mock Interview System\"]\n        UC1(\"(1) Register & Login\")\n        UC1a(\"(1a) Google OAuth\")\n        UC2(\"(2) Upload Resume\")\n        UC3(\"(3) Analyze ATS Score\")\n        UC4(\"(4) Start Mock Interview\")\n        UC5(\"(5) Submit Audio Answer\")\n        UC6(\"(6) View Performance Report\")\n    end\n\n    Candidate --> UC1\n    Candidate --> UC2\n    Candidate --> UC4\n    Candidate --> UC5\n    Candidate --> UC6\n\n    UC1a -.->|<<extend>>| UC1\n    UC2 .->|<<include>>| UC3\n    UC5 .->|<<include>>| UC6\n\n    UC3 <--> GeminiAI\n    UC5 <--> GeminiAI", "raw_markdown": "## 2. Use Case Diagram\n### Categorization: Behavioral Diagram\n### Purpose:\nHigh-level view of core user interactions with the system, standard includes/extends, and integration with the external Gemini AI engine.\n\n\n\n### Key Presentation Talking Points:\n* **Primary Actor:** Candidate interacts with registration, resume upload, mock interview, and analytics features to self-improve and check their performance.\n* **UML Stereotypes:** Uses `<<extend>>` for optional OAuth login and `<<include>>` for mandatory AI analysis.\n* **Automated External Actor:** External Gemini AI performs heavy processing for ATS scoring and answer evaluation.\n\n---\n"}, {"id": "slide_4", "tabLabel": "4. Sequence Diagram", "category": "Interaction Diagram", "title": "3. Sequence Diagram", "summary": "Traces the step-by-step interaction flow for uploading a resume and retrieving AI-driven ATS screening results, explicitly showing database persistence.", "architecture": ["Database Persistence:** Explicitly shows the Spring Boot backend interacting with the PostgreSQL database to ensure state is saved before responding to the user.", "Decoupled Flow:** The React client communicates with Spring Boot, which orchestrates the call to the FastAPI Gemini AI microservice."], "mermaid": "sequenceDiagram\n    autonumber\n    actor Candidate\n    participant React as React Frontend\n    participant Backend as Spring Boot Backend\n    participant DB as PostgreSQL Database\n    participant AI as FastAPI (Gemini AI)\n\n    Candidate->>React: 1. Upload Resume (PDF)\n    React->>Backend: 2. POST /api/resumes/upload\n    Backend->>AI: 3. POST /ai/screen-resume\n    AI-->>Backend: 4. Return ATS Score & Feedback JSON\n    Backend->>DB: 5. Persist Resume Entity\n    DB-->>Backend: 6. Acknowledge Save\n    Backend-->>React: 7. 200 OK (Resume Score)\n    React-->>Candidate: 8. Display ATS Report & Tips", "raw_markdown": "## 3. Sequence Diagram\n### Categorization: Interaction Diagram\n### Purpose:\nTraces the step-by-step interaction flow for uploading a resume and retrieving AI-driven ATS screening results, explicitly showing database persistence.\n\n\n\n### Key Presentation Talking Points:\n* **Database Persistence:** Explicitly shows the Spring Boot backend interacting with the PostgreSQL database to ensure state is saved before responding to the user.\n* **Decoupled Flow:** The React client communicates with Spring Boot, which orchestrates the call to the FastAPI Gemini AI microservice.\n\n---\n"}, {"id": "slide_5", "tabLabel": "5. Activity Diagram", "category": "Workflow / Behavioral Diagram", "title": "4. Activity Diagram", "summary": "Represents the step-by-step decision flow from resume upload to mock interview execution, including concurrent client-side processing.", "architecture": ["End-to-End Pipeline:** Seamlessly transitions from resume screening to displaying ATS tips, and straight into the mock interview.", "Concurrency:** The Fork/Join nodes highlight that audio recording and vision analysis (eye contact tracking) occur simultaneously in the browser."], "mermaid": "flowchart TD\n    Start([Start]) --> Upload[Candidate Uploads Resume PDF]\n    Upload --> Parse[System Extracts Resume Text]\n    Parse --> Screen[Gemini AI Analyzes ATS Score]\n    Screen --> DisplayATS[Display ATS Report & Tips]\n    DisplayATS --> StartInt[Proceed to Mock Interview]\n    \n    StartInt --> Fork((Fork))\n    Fork --> Record[Record Answer Audio]\n    Fork --> Vision[MediaPipe Face Landmarking]\n    Record --> Join((Join))\n    Vision --> Join\n    \n    Join --> AIScore[Gemini AI Scores Response]\n    AIScore --> Report[Display Final Scorecard]\n    Report --> Stop([End])", "raw_markdown": "## 4. Activity Diagram\n### Categorization: Workflow / Behavioral Diagram\n### Purpose:\nRepresents the step-by-step decision flow from resume upload to mock interview execution, including concurrent client-side processing.\n\n\n\n### Key Presentation Talking Points:\n* **End-to-End Pipeline:** Seamlessly transitions from resume screening to displaying ATS tips, and straight into the mock interview.\n* **Concurrency:** The Fork/Join nodes highlight that audio recording and vision analysis (eye contact tracking) occur simultaneously in the browser.\n\n---\n"}, {"id": "slide_6", "tabLabel": "6. Object Diagram", "category": "Structural Diagram (Snapshot)", "title": "5. Object Diagram", "summary": "Provides a concrete runtime snapshot of instantiated objects during an active candidate session with realistic data.", "architecture": ["Concrete Values:** Demonstrates live instance data showing candidate Alice applying for a \"Senior Java Developer\" role.", "Instance Mapping:** Maps directly to class relationships at runtime, showing exact field states."], "mermaid": "flowchart LR\n    subgraph UserInstance [\"u1: User\"]\n        u_attr[\"id = 1<br/>name = 'Alice'<br/>email = 'alice@example.com'<br/>createdAt = '2026-09-07'\"]\n    end\n\n    subgraph ResumeInstance [\"r1: Resume\"]\n        r_attr[\"id = 101<br/>atsScore = 85<br/>status = 'ANALYZED'<br/>updatedAt = '2026-09-07'\"]\n    end\n\n    subgraph SessionInstance [\"s1: InterviewSession\"]\n        s_attr[\"id = 501<br/>jobRole = 'Senior Java Developer'<br/>overallScore = 88<br/>status = 'COMPLETED'\"]\n    end\n\n    subgraph LogInstance [\"q1: QuestionAnswerLog\"]\n        q_attr[\"id = 901<br/>question = 'Explain Spring Boot Autoconfiguration'<br/>score = 90\"]\n    end\n\n    UserInstance -->|owns| ResumeInstance\n    UserInstance -->|initiates| SessionInstance\n    SessionInstance -->|contains| LogInstance", "raw_markdown": "## 5. Object Diagram\n### Categorization: Structural Diagram (Snapshot)\n### Purpose:\nProvides a concrete runtime snapshot of instantiated objects during an active candidate session with realistic data.\n\n\n\n### Key Presentation Talking Points:\n* **Concrete Values:** Demonstrates live instance data showing candidate Alice applying for a \"Senior Java Developer\" role.\n* **Instance Mapping:** Maps directly to class relationships at runtime, showing exact field states.\n\n---\n"}, {"id": "slide_7", "tabLabel": "7. State Chart Diagram", "category": "Behavioral / State Machine Diagram", "title": "6. State Chart Diagram", "summary": "Models the lifecycle states of an Interview Session, including internal loop transitions.", "architecture": ["Composite State:** The `ACTIVE` state contains internal transitions, properly looping through question evaluation up to 5 times.", "Guard Conditions:** Transitions use explicit guard conditions (`[questions < 5]`) to control flow logic."], "mermaid": "stateDiagram-v2\n    [*] --> IDLE\n    IDLE --> RESUME_UPLOADED : uploadResume()\n    RESUME_UPLOADED --> ACTIVE : startInterview()\n    \n    state ACTIVE {\n        [*] --> WAITING_FOR_ANSWER\n        WAITING_FOR_ANSWER --> EVALUATING : submitAnswer()\n        EVALUATING --> WAITING_FOR_ANSWER : [questions < 5]\n    }\n    \n    ACTIVE --> COMPLETED : [questions == 5]\n    ACTIVE --> ABORTED : cancel()\n    COMPLETED --> [*]\n    ABORTED --> [*]", "raw_markdown": "## 6. State Chart Diagram\n### Categorization: Behavioral / State Machine Diagram\n### Purpose:\nModels the lifecycle states of an Interview Session, including internal loop transitions.\n\n\n\n### Key Presentation Talking Points:\n* **Composite State:** The `ACTIVE` state contains internal transitions, properly looping through question evaluation up to 5 times.\n* **Guard Conditions:** Transitions use explicit guard conditions (`[questions < 5]`) to control flow logic.\n\n---\n"}, {"id": "slide_8", "tabLabel": "8. Collaboration Diagram", "category": "Interaction / Communication Diagram", "title": "7. Collaboration Diagram", "summary": "Highlights object organization and numbered message exchange during answer submission, emphasizing the full backend pipeline.", "architecture": ["Spatial Relationship:** Focuses on structural links between nodes rather than a strict vertical timeline.", "Full Data Lifecycle:** Shows the complete 6-step loop from user interaction, to AI generation, to persistent DB storage, and back to the UI."], "mermaid": "flowchart LR\n    C[\":Candidate\"]\n    F[\":ReactApp\"]\n    B[\":BackendServer\"]\n    A[\":AIService\"]\n    DB[\":PostgresDB\"]\n\n    C -->|\"1: submitAnswer()\"| F\n    F -->|\"2: sendAudioPayload()\"| B\n    B -->|\"3: evaluateAudioWithGemini()\"| A\n    A -->|\"4: returnMetrics()\"| B\n    B -->|\"5: saveSessionLog()\"| DB\n    B -->|\"6: displayScoreCard()\"| F", "raw_markdown": "## 7. Collaboration Diagram\n### Categorization: Interaction / Communication Diagram\n### Purpose:\nHighlights object organization and numbered message exchange during answer submission, emphasizing the full backend pipeline.\n\n\n\n### Key Presentation Talking Points:\n* **Spatial Relationship:** Focuses on structural links between nodes rather than a strict vertical timeline.\n* **Full Data Lifecycle:** Shows the complete 6-step loop from user interaction, to AI generation, to persistent DB storage, and back to the UI.\n\n---\n"}, {"id": "slide_9", "tabLabel": "9. Component Diagram", "category": "Structural / Subsystem Diagram", "title": "8. Component Diagram", "summary": "Shows high-level system modules and protocol interfaces connecting frontend, backend, AI microservice, and database.", "architecture": ["Internal Sub-components:** Highlights key technological choices inside the tiers like Spring Security, Tika, and Pydantic.", "Standard Protocols:** Tiers communicate via standard REST APIs, HTTP/JSON, and JDBC drivers."], "mermaid": "flowchart TB\n    subgraph FrontendTier [\"Frontend Tier\"]\n        UI[\"React SPA Component\"]\n        WASM[\"MediaPipe WASM Worker\"]\n    end\n\n    subgraph BackendTier [\"Backend Tier\"]\n        API[\"Spring Boot REST API\"]\n        Security[\"Spring Security JWT\"]\n        Tika[\"Apache Tika Parser\"]\n    end\n\n    subgraph AITier [\"AI Microservice Tier\"]\n        AI[\"FastAPI AI Engine\"]\n        Pydantic[\"Pydantic Validator\"]\n    end\n\n    subgraph DatabaseTier [\"Database Tier\"]\n        DB[(PostgreSQL Component)]\n    end\n\n    UI -->|REST API / HTTP| API\n    UI -.-> WASM\n    API -.-> Security\n    API -.-> Tika\n    API -->|HTTP / JSON| AI\n    AI -.-> Pydantic\n    API -->|JDBC Connection| DB", "raw_markdown": "## 8. Component Diagram\n### Categorization: Structural / Subsystem Diagram\n### Purpose:\nShows high-level system modules and protocol interfaces connecting frontend, backend, AI microservice, and database.\n\n\n\n### Key Presentation Talking Points:\n* **Internal Sub-components:** Highlights key technological choices inside the tiers like Spring Security, Tika, and Pydantic.\n* **Standard Protocols:** Tiers communicate via standard REST APIs, HTTP/JSON, and JDBC drivers.\n\n---\n"}, {"id": "slide_10", "tabLabel": "10. Deployment Diagram", "category": "Physical / Infrastructure Diagram", "title": "9. Deployment Diagram", "summary": "Maps software artifacts to physical hardware nodes, network ports, and specific execution environments.", "architecture": ["Execution Environments:** explicitly maps out the underlying JRE and Python Virtualenv that host the application servers.", "Hardware Nodes:** Distinct physical tiers \u2014 Client Computer, Application Host, and Cloud Services.", "Network & Ports:** Clear mapping of ports (`8080`, `8000`, `5432`) and communication protocols."], "mermaid": "flowchart TB\n    subgraph ClientNode [\"<<Device>> Client Computer\"]\n        Browser[\"Web Browser (React SPA)\"]\n    end\n\n    subgraph ServerNode [\"<<Server>> Application Host\"]\n        subgraph JRE [\"OpenJDK 17 JRE\"]\n            SpringBoot[\"Spring Boot Container (Port 8080)\"]\n        end\n        subgraph PyEnv [\"Python 3.10 Virtualenv\"]\n            FastAPI[\"Uvicorn FastAPI Container (Port 8000)\"]\n        end\n    end\n\n    subgraph CloudNode [\"<<Cloud Services>>\"]\n        Database[(Supabase PostgreSQL<br/>Port 5432)]\n        GeminiCloud[\"Google Gemini API\"]\n    end\n\n    Browser -->|HTTPS :3000 -> :8080| SpringBoot\n    SpringBoot -->|HTTP :8000| FastAPI\n    SpringBoot -->|JDBC :5432| Database\n    FastAPI -->|HTTPS| GeminiCloud", "raw_markdown": "## 9. Deployment Diagram\n### Categorization: Physical / Infrastructure Diagram\n### Purpose:\nMaps software artifacts to physical hardware nodes, network ports, and specific execution environments.\n\n\n\n### Key Presentation Talking Points:\n* **Execution Environments:** explicitly maps out the underlying JRE and Python Virtualenv that host the application servers.\n* **Hardware Nodes:** Distinct physical tiers \u2014 Client Computer, Application Host, and Cloud Services.\n* **Network & Ports:** Clear mapping of ports (`8080`, `8000`, `5432`) and communication protocols.\n\n---\n"}, {"id": "slide_11", "tabLabel": "11. Viva / Presentation Defense Guide", "category": "General Presentation", "title": "10. Viva / Presentation Defense Guide", "summary": "", "architecture": [], "mermaid": "", "raw_markdown": "## 10. Viva / Presentation Defense Guide\n\nWhen presenting these diagrams to your evaluators, be prepared to answer these common architectural questions:\n\n| Question from Evaluator | Recommended Architectural Defense | Related Diagram |\n| :--- | :--- | :--- |\n| **\"Why did you use both Spring Boot and FastAPI instead of writing everything in Python or Java?\"** | \"We selected a **decoupled polyglot microservice architecture**. Spring Boot provides enterprise-grade transaction management, robust JPA/Hibernate persistence, and Spring Security. Python and FastAPI provide native support for AI/ML libraries and Google GenAI SDKs, isolating compute-intensive AI operations.\" | Component & Deployment Diagrams |\n| **\"Where does video processing happen, and does it cause server latency?\"** | \"Video coaching runs **on the client side** using WebAssembly (WASM) and MediaPipe. Only lightweight score metrics are sent to the backend, eliminating bandwidth bottlenecks.\" | Sequence & Activity Diagrams |\n| **\"What happens if an interview is interrupted midway?\"** | \"The `InterviewSession` uses state tracking with an `ACTIVE` state. Each completed question is saved atomically in `question_answer_logs` via the database, so progress is preserved even if the session aborts.\" | State Chart & Sequence Diagrams |\n| **\"Why is Gemini AI used for resume screening?\"** | \"Google Gemini 1.5 Flash provides fast, low-cost multimodal context processing to analyze resume text against job descriptions and compute accurate ATS compatibility scores.\" | Sequence & Use Case Diagrams |\n| **\"Explain the difference between your Sequence and Collaboration diagrams.\"** | \"Our **Sequence Diagram** highlights time-ordered flow and database persistence during resume upload, while our **Collaboration Diagram** highlights object relationships and standard message passing during answer submission.\" | Sequence & Collaboration Diagrams |\n\n---\n*Created for InterviewIQ AI Design Review Presentation \u2014 Medium Detail UML Architecture.*\n"}];
+
+    let currentSlide = 0;
+    let zoomLevel = 1.0;
+
+    // Build Tabs
+    const tabsNav = document.getElementById('tabsNav');
+    slidesData.forEach((s, i) => {
+      const tab = document.createElement('div');
+      tab.className = `tab-item ${i === 0 ? 'active' : ''}`;
+      tab.textContent = s.tabLabel;
+      tab.onclick = () => goToSlide(i);
+      tabsNav.appendChild(tab);
+    });
+
+    async function renderSlide(index) {
+      currentSlide = index;
+      resetZoom();
+
+      // Update Tabs
+      const tabItems = document.querySelectorAll('.tab-item');
+      tabItems.forEach((t, i) => {
+        t.classList.toggle('active', i === index);
+      });
+
+      if (tabItems[index]) {
+        tabItems[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+
+      // Update Header
+      const data = slidesData[index];
+      document.getElementById('slideCategory').textContent = data.category;
+      document.getElementById('slideTitle').textContent = data.title;
+      document.getElementById('slideIndicator').textContent = `Slide ${index + 1} / ${slidesData.length}`;
+
+      // Render Mermaid or Markdown
+      const viewport = document.getElementById('viewport');
+      viewport.innerHTML = '<div style="color:white;">Rendering...</div>';
+      
+      if (data.mermaid && data.mermaid.trim() !== '') {
+        viewport.innerHTML = '<div class="diagram-canvas" id="canvas"></div>';
+        const canvas = document.getElementById('canvas');
+        try {
+          if (window.mermaid) {
+            const { svg } = await window.mermaid.render(`mermaid-svg-${index}`, data.mermaid);
+            canvas.innerHTML = svg;
+          } else {
+            canvas.innerHTML = '<div class="error-box">Mermaid library not loaded yet. Please try again.</div>';
+          }
+        } catch (err) {
+          console.error('Mermaid render error:', err);
+          canvas.innerHTML = `<div class="error-box">Failed to render diagram:\n${err.message}</div>`;
+        }
+      } else {
+        // Render Markdown for text-only sections like Table of Contents or Viva Guide
+        viewport.innerHTML = '<div class="markdown-canvas" id="canvas"></div>';
+        const canvas = document.getElementById('canvas');
+        canvas.innerHTML = marked.parse(data.raw_markdown);
+      }
+
+      // Update Notes Panel
+      const notesPanel = document.getElementById('notesPanel');
+      let notesHtml = '';
+      
+      if (data.summary) {
+        notesHtml += `
+          <div class="notes-card">
+            <div class="slide-category">${data.category}</div>
+            <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700;">${data.title}</h2>
+            <p>${data.summary}</p>
+          </div>`;
+      }
+      
+      if (data.architecture && data.architecture.length > 0) {
+        notesHtml += `
+          <div class="notes-card">
+            <h3>⚡ Architectural Breakdown & Talking Points</h3>
+            <ul>
+              ${data.architecture.map(a => `<li>${a}</li>`).join('')}
+            </ul>
+          </div>`;
+      }
+      
+      if (!data.summary && (!data.architecture || data.architecture.length === 0)) {
+        notesHtml += `
+          <div class="notes-card">
+            <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem; font-weight: 700;">${data.title}</h2>
+            <p>This is a textual reference slide containing project documentation.</p>
+          </div>`;
+      }
+      
+      notesPanel.innerHTML = notesHtml;
+    }
+
+    function zoomIn() {
+      if (zoomLevel < 2.5) {
+        zoomLevel += 0.2;
+        applyZoom();
+      }
+    }
+
+    function zoomOut() {
+      if (zoomLevel > 0.5) {
+        zoomLevel -= 0.2;
+        applyZoom();
+      }
+    }
+
+    function resetZoom() {
+      zoomLevel = 1.0;
+      applyZoom();
+    }
+
+    function applyZoom() {
+      const canvas = document.getElementById('canvas');
+      if (canvas && canvas.classList.contains('diagram-canvas')) {
+        canvas.style.transform = `scale(${zoomLevel})`;
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < slidesData.length - 1) {
+        goToSlide(currentSlide + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        goToSlide(currentSlide - 1);
+      }
+    }
+
+    function goToSlide(index) {
+      renderSlide(index);
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn('Fullscreen request failed', err);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // PlantUML Modal Controls
+    function openPumlModal() {
+      const data = slidesData[currentSlide];
+      document.getElementById('modalFileName').textContent = `(Diagram ${currentSlide + 1})`;
+      document.getElementById('modalPumlCode').textContent = data.mermaid ? data.mermaid : data.raw_markdown;
+      document.getElementById('pumlModal').classList.add('active');
+    }
+
+    function closePumlModal() {
+      document.getElementById('pumlModal').classList.remove('active');
+    }
+
+    function closeModalOnOverlay(e) {
+      if (e.target === document.getElementById('pumlModal')) {
+        closePumlModal();
+      }
+    }
+
+    function copyPumlCode() {
+      const data = slidesData[currentSlide];
+      const code = data.mermaid ? data.mermaid : data.raw_markdown;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copyBtn');
+        const origText = btn.textContent;
+        btn.textContent = '✓ Copied to Clipboard!';
+        btn.style.background = '#10b981';
+        btn.style.color = 'white';
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.style.background = '';
+          btn.style.color = '';
+        }, 2000);
+      }).catch(err => {
+        alert('Failed to copy: ' + err);
+      });
+    }
+    
+    // Wait for mermaid to load, then render first slide
+    setTimeout(() => {
+        goToSlide(0);
+    }, 500);
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+@startuml
+skinparam actorFontSize 12
+skinparam usecaseFontSize 12
+left to right direction
+
+actor "Candidate / User" as Candidate
+actor "External Gemini AI" as GeminiAI
+
+rectangle "AI Resume & Mock Interview System" {
+  usecase "(1) Register & Login" as UC1
+  usecase "(1a) Google OAuth" as UC1a
+  usecase "(2) Upload Resume" as UC2
+  usecase "(3) Analyze ATS Score" as UC3
+  usecase "(4) Start Mock Interview" as UC4
+  usecase "(5) Submit Audio Answer" as UC5
+  usecase "(6) View Performance Report" as UC6
+}
+
+Candidate --> UC1
+Candidate --> UC2
+Candidate --> UC4
+Candidate --> UC5
+Candidate --> UC6
+
+UC1 <.. UC1a : <<extend>>
+UC2 .> UC3 : <<include>>
+UC5 .> UC6 : <<include>>
+
+UC3 <--> GeminiAI
+UC5 <--> GeminiAI
+@enduml

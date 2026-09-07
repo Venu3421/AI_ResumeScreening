@@ -133,7 +133,7 @@ public class InterviewServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(objectMapper.writeValueAsString(aiResponseMap), MediaType.APPLICATION_JSON));
 
-        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "What is Java?", audioFile, userEmail, null, null, null, null);
+        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "What is Java?", audioFile, userEmail, null, null, null, null, null);
 
         assertNotNull(response);
         assertEquals("Java is a programming language", response.getTranscript());
@@ -196,7 +196,7 @@ public class InterviewServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(objectMapper.writeValueAsString(aiResponseMap), MediaType.APPLICATION_JSON));
 
-        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "Question 5", audioFile, userEmail, null, null, null, null);
+        SubmitAnswerResponse response = interviewService.submitAnswer(100L, "Question 5", audioFile, userEmail, null, null, null, null, null);
 
         assertNotNull(response);
         assertNull(response.getNextQuestion());

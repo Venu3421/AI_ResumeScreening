@@ -1,0 +1,32 @@
+@startuml
+object "u1 : User" as u1 {
+  id = 1
+  name = "Alice"
+  email = "alice@example.com"
+  createdAt = "2026-09-07"
+}
+
+object "r1 : Resume" as r1 {
+  id = 101
+  atsScore = 85
+  status = "ANALYZED"
+  updatedAt = "2026-09-07"
+}
+
+object "s1 : InterviewSession" as s1 {
+  id = 501
+  jobRole = "Senior Java Developer"
+  overallScore = 88
+  status = "COMPLETED"
+}
+
+object "q1 : QuestionAnswerLog" as q1 {
+  id = 901
+  question = "Explain Spring Boot Autoconfiguration"
+  score = 90
+}
+
+u1 -- r1 : owns >
+u1 -- s1 : initiates >
+s1 -- q1 : contains >
+@enduml

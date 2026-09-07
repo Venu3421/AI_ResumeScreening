@@ -1,0 +1,64 @@
+@startuml
+skinparam classAttributeIconSize 10
+skinparam classFontSize 12
+skinparam classFontName Arial
+skinparam shadowing true
+
+class User {
+  +Long id
+  +String name
+  +String email
+  -String passwordHash
+  +register()
+  +login()
+}
+
+class Resume {
+  +Long id
+  +String rawText
+  +Integer atsScore
+  +String feedback
+  +LocalDateTime updatedAt
+  +analyzeResume()
+}
+
+class InterviewSession {
+  +Long id
+  +String jobRole
+  +String status
+  +Integer overallScore
+  +startSession()
+  +calculateFinalScore()
+}
+
+class QuestionAnswerLog {
+  +Long id
+  +String questionText
+  +String transcript
+  +Integer score
+  +evaluate()
+}
+
+class AuthController {
+  +login(request)
+  +register(request)
+}
+
+class InterviewController {
+  +startSession(request)
+  +submitAnswer(audio, metrics)
+}
+
+class AIService {
+  +screenResume()
+  +evaluateAnswer()
+}
+
+User "1" *-- "1" Resume : owns
+User "1" *-- "0..*" InterviewSession : initiates
+InterviewSession "1" *-- "1..*" QuestionAnswerLog : contains
+
+AuthController ..> User : authenticates
+InterviewController ..> InterviewSession : manages
+InterviewSession ..> AIService : evaluates via
+@enduml

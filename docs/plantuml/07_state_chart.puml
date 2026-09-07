@@ -1,0 +1,16 @@
+@startuml
+[*] --> IDLE
+IDLE --> RESUME_UPLOADED : uploadResume()
+RESUME_UPLOADED --> ACTIVE : startInterview()
+
+state ACTIVE {
+  [*] --> WAITING_FOR_ANSWER
+  WAITING_FOR_ANSWER --> EVALUATING : submitAnswer()
+  EVALUATING --> WAITING_FOR_ANSWER : [questions < 5]
+}
+
+ACTIVE --> COMPLETED : [questions == 5]
+ACTIVE --> ABORTED : cancel()
+COMPLETED --> [*]
+ABORTED --> [*]
+@enduml

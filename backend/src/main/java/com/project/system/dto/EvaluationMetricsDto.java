@@ -41,4 +41,5 @@ public class EvaluationMetricsDto {
     private Integer interviewPresence;
     private Integer eyeContact;
     private Integer bodyLanguage;
+    private Integer facialComposure;
 }

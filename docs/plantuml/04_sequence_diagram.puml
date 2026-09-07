@@ -1,0 +1,17 @@
+@startuml
+autonumber
+actor Candidate
+participant "React Frontend" as React
+participant "Spring Boot Backend" as Backend
+participant "PostgreSQL Database" as DB
+participant "FastAPI (Gemini AI)" as AI
+
+Candidate -> React : 1. Upload Resume (PDF)
+React -> Backend : 2. POST /api/resumes/upload
+Backend -> AI : 3. POST /ai/screen-resume
+AI --> Backend : 4. Return ATS Score & Feedback JSON
+Backend -> DB : 5. Persist Resume Entity
+DB --> Backend : 6. Acknowledge Save
+Backend --> React : 7. 200 OK (Resume Score)
+React --> Candidate : 8. Display ATS Report & Tips
+@enduml

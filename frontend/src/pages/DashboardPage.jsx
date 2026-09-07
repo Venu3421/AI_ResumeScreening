@@ -8,10 +8,10 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalInterviews: 12,
-    avgScore: 78,
-    atsScore: 82,
-    technicalAccuracy: 84,
+    totalInterviews: 0,
+    avgScore: null,
+    atsScore: null,
+    technicalScore: null,
   });
   const [sessions, setSessions] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -26,16 +26,16 @@ export default function DashboardPage() {
           const completed = sessionsData.filter((session) => session.status === 'COMPLETED');
           const avgScore = completed.length
             ? Math.round(completed.reduce((total, session) => total + (session.overallScore || 0), 0) / completed.length)
-            : 78;
+            : null;
           setStats({
             totalInterviews: sessionsData.length,
             avgScore,
-            atsScore: 82,
-            technicalAccuracy: 84,
+            atsScore: null,
+            technicalScore: null,
           });
         }
       } catch {
-        // Keep polished demo data available when the backend is offline.
+        // Fallback gracefully if backend is offline
       } finally {
         setLoadingStats(false);
       }
@@ -43,15 +43,18 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const readinessScore = stats.avgScore;
+  const readinessScore = stats.avgScore || 0;
   const circumference = 440;
-  const strokeOffset = circumference - (circumference * readinessScore) / 100;
+  const strokeOffset = stats.avgScore != null
+    ? circumference - (circumference * readinessScore) / 100
+    : circumference;
   const firstName = user?.name?.split(' ')[0] || 'Candidate';
 
+  const isUsingDemoSessions = sessions.length === 0;
   const displaySessions = sessions.length > 0 ? sessions.slice(0, 5) : [
-    { id: 'mock-1', jobDescription: 'Technical Mock (React/FE)', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 82, status: 'COMPLETED' },
-    { id: 'mock-2', jobDescription: 'Behavioral Assessment', createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 76, status: 'COMPLETED' },
-    { id: 'mock-3', jobDescription: 'Resume ATS Scan', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 89, status: 'COMPLETED' },
+    { id: 'mock-1', jobDescription: 'Technical Mock (React/FE)', createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 82, status: 'COMPLETED', isDemo: true },
+    { id: 'mock-2', jobDescription: 'Behavioral Assessment', createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 76, status: 'COMPLETED', isDemo: true },
+    { id: 'mock-3', jobDescription: 'Resume ATS Scan', createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), overallScore: 89, status: 'COMPLETED', isDemo: true },
   ];
 
   const quickActions = [
@@ -61,10 +64,30 @@ export default function DashboardPage() {
   ];
 
   const statCards = [
-    { label: 'Total interviews', value: stats.totalInterviews, note: '+2 this week', tone: 'text-emerald-600' },
-    { label: 'Average score', value: `${stats.avgScore}%`, note: '+4% trend', tone: 'text-emerald-600' },
-    { label: 'ATS score', value: `${stats.atsScore}%`, note: 'Role ready', tone: 'text-primary' },
-    { label: 'Technical accuracy', value: `${stats.technicalAccuracy}%`, note: 'Top band', tone: 'text-secondary' },
+    {
+      label: 'Total interviews',
+      value: stats.totalInterviews,
+      note: stats.totalInterviews > 0 ? `${stats.totalInterviews} recorded` : 'Get started',
+      tone: stats.totalInterviews > 0 ? 'text-emerald-600' : 'text-slate-400',
+    },
+    {
+      label: 'Average score',
+      value: stats.avgScore != null ? `${stats.avgScore}%` : '—',
+      note: stats.avgScore != null ? 'Completed sessions' : 'No data yet',
+      tone: stats.avgScore != null ? 'text-emerald-600' : 'text-slate-400',
+    },
+    {
+      label: 'ATS score',
+      value: stats.atsScore != null ? `${stats.atsScore}%` : '—',
+      note: 'Upload resume',
+      tone: 'text-slate-400',
+    },
+    {
+      label: 'Technical Score',
+      value: stats.technicalScore != null ? `${stats.technicalScore}%` : '—',
+      note: 'From evaluations',
+      tone: 'text-slate-400',
+    },
   ];
 
   return (
@@ -116,13 +139,24 @@ export default function DashboardPage() {
                 </defs>
               </svg>
               <div className="absolute inset-0 grid place-items-center">
-                <span className="text-4xl font-extrabold text-slate-950">{readinessScore}%</span>
+                <span className="text-4xl font-extrabold text-slate-950">
+                  {stats.avgScore != null ? `${readinessScore}%` : '—'}
+                </span>
               </div>
             </div>
-            <p className="text-sm font-semibold text-slate-600">{readinessScore >= 80 ? 'Strong interview posture' : readinessScore >= 60 ? 'Solid, with room to sharpen' : 'Practice plan recommended'}</p>
+            <p className="text-sm font-semibold text-slate-600">
+              {stats.avgScore != null
+                ? (readinessScore >= 80 ? 'Strong interview posture' : readinessScore >= 60 ? 'Solid, with room to sharpen' : 'Practice plan recommended')
+                : 'Complete your first mock interview to calculate your readiness score'}
+            </p>
             <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-left">
-              <div className="mb-2 flex justify-between text-sm font-bold text-slate-700"><span>Daily goal</span><span>{readinessScore}%</span></div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-primary" style={{ width: `${readinessScore}%` }} /></div>
+              <div className="mb-2 flex justify-between text-sm font-bold text-slate-700">
+                <span>Daily goal</span>
+                <span>{stats.avgScore != null ? `${readinessScore}%` : '—'}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${stats.avgScore != null ? readinessScore : 0}%` }} />
+              </div>
             </div>
           </div>
         </section>
@@ -155,41 +189,41 @@ export default function DashboardPage() {
                 <h2 className="text-2xl font-extrabold text-slate-950">Weekly performance</h2>
                 <p className="mt-1 text-sm text-slate-500">Interview readiness trend</p>
               </div>
-              <select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 outline-none focus:border-primary">
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-              </select>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">Coming soon</span>
             </div>
-            <div className="relative h-64 rounded-2xl bg-slate-50 p-4">
-              <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 420 180">
-                <path d="M0,142 C55,125 66,96 120,101 C168,106 170,133 215,120 C262,107 270,70 325,72 C366,74 385,38 420,26" fill="none" stroke="url(#lineGradient)" strokeLinecap="round" strokeWidth="5" />
-                <path d="M0,142 C55,125 66,96 120,101 C168,106 170,133 215,120 C262,107 270,70 325,72 C366,74 385,38 420,26 L420,180 L0,180 Z" fill="url(#areaGradient)" />
-                <defs>
-                  <linearGradient id="lineGradient" x1="0%" x2="100%"><stop stopColor="#0f5bd8" /><stop offset="100%" stopColor="#7c3aed" /></linearGradient>
-                  <linearGradient id="areaGradient" x1="0%" x2="0%" y1="0%" y2="100%"><stop stopColor="#4f46e5" stopOpacity="0.18" /><stop offset="100%" stopColor="#4f46e5" stopOpacity="0" /></linearGradient>
-                </defs>
-              </svg>
+            <div className="relative flex h-64 flex-col items-center justify-center rounded-2xl bg-slate-50 p-6 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-300">timeline</span>
+              <p className="mt-3 text-sm font-extrabold text-slate-700">Trend analytics</p>
+              <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">Day-over-day score progression tracking will activate as you complete multiple mock sessions.</p>
             </div>
-            <div className="mt-4 flex justify-between text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+            <div className="mt-4 flex justify-between text-xs font-bold uppercase tracking-[0.12em] text-slate-300">
               <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
             </div>
           </div>
 
           <div className="app-card rounded-[28px] p-6 sm:p-8">
-            <div className="mb-8">
-              <h2 className="text-2xl font-extrabold text-slate-950">Skill improvement</h2>
-              <p className="mt-1 text-sm text-slate-500">Current score by evaluation dimension</p>
+            <div className="mb-8 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-950">Skill breakdown</h2>
+                <p className="mt-1 text-sm text-slate-500">Evaluation dimension averages</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">Coming soon</span>
             </div>
             <div className="space-y-5">
               {[
-                ['Technical logic', 85, 'bg-primary'],
-                ['Communication', 78, 'bg-secondary'],
-                ['Confidence', 90, 'bg-emerald-500'],
-                ['Answer structure', 72, 'bg-amber-500'],
-              ].map(([label, value, color]) => (
+                ['Technical Score', 'bg-primary'],
+                ['Communication', 'bg-secondary'],
+                ['Confidence', 'bg-emerald-500'],
+                ['Speaking Pace', 'bg-indigo-500'],
+              ].map(([label, color]) => (
                 <div key={label}>
-                  <div className="mb-2 flex justify-between text-sm font-bold text-slate-700"><span>{label}</span><span>{value}%</span></div>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} /></div>
+                  <div className="mb-2 flex justify-between text-sm font-bold text-slate-500">
+                    <span>{label}</span>
+                    <span>—</span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                    <div className={`h-full rounded-full ${color}`} style={{ width: '0%' }} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -200,7 +234,11 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-950">Recent activity</h2>
-              <p className="mt-1 text-sm text-slate-500">Latest scans and practice sessions</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {isUsingDemoSessions
+                  ? 'Sample practice sessions (start an interview to record your own)'
+                  : 'Latest scans and practice sessions'}
+              </p>
             </div>
             <button type="button" onClick={() => navigate('/history')} className="inline-flex items-center gap-2 text-sm font-extrabold text-primary">
               View all history <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -230,16 +268,27 @@ export default function DashboardPage() {
                           <span className={`grid h-10 w-10 place-items-center rounded-xl ${isTechnical ? 'bg-blue-50 text-primary' : isResume ? 'bg-violet-50 text-tertiary' : 'bg-indigo-50 text-secondary'}`}>
                             <span className="material-symbols-outlined text-[20px]">{isTechnical ? 'code' : isResume ? 'description' : 'forum'}</span>
                           </span>
-                          <span className="font-bold text-slate-800">{title}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-800">{title}</span>
+                            {sessionItem.isDemo && (
+                              <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-700">Sample</span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-5 text-slate-500">{new Date(sessionItem.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                       <td className="px-6 py-5 font-extrabold text-slate-950">{sessionItem.overallScore}%</td>
                       <td className="px-6 py-5"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700">{sessionItem.status === 'COMPLETED' ? 'Completed' : 'Processed'}</span></td>
                       <td className="px-6 py-5 text-right">
-                        <button type="button" onClick={() => navigate(isResume ? '/resume' : `/history?sessionId=${sessionItem.id}`)} className="font-extrabold text-primary hover:underline">
-                          {isResume ? 'View report' : 'Review'}
-                        </button>
+                        {sessionItem.isDemo ? (
+                          <button type="button" onClick={() => navigate('/interview')} className="font-extrabold text-primary hover:underline">
+                            Try mock
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => navigate(isResume ? '/resume' : `/history?sessionId=${sessionItem.id}`)} className="font-extrabold text-primary hover:underline">
+                            {isResume ? 'View report' : 'Review'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

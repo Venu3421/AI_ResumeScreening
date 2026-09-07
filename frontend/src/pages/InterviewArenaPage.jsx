@@ -153,7 +153,7 @@ export default function InterviewArenaPage() {
       setTimer(180);
       setTimerActive(true);
       setPhase('active');
-    } catch {
+    } catch (err) {
       setError(err.response?.data?.message || 'Failed to start mock session. Please try again.');
     } finally {
       setLoadingQ(false);
@@ -279,6 +279,9 @@ export default function InterviewArenaPage() {
       fd.append('interviewPresence', String(presenceSummary.interviewPresence));
       fd.append('eyeContact', String(presenceSummary.eyeContact));
       fd.append('bodyLanguage', String(presenceSummary.bodyLanguage));
+      if (presenceSummary.facialComposure != null) {
+        fd.append('facialComposure', String(presenceSummary.facialComposure));
+      }
     }
 
     try {
@@ -319,10 +322,11 @@ export default function InterviewArenaPage() {
   const interviewPresence = lastEval?.metrics?.interviewPresence;
   const eyeContact = lastEval?.metrics?.eyeContact;
   const bodyLanguage = lastEval?.metrics?.bodyLanguage;
+  const facialComposure = lastEval?.metrics?.facialComposure;
 
   let overallReadiness = 0;
   if (lastEval) {
-      const scores = [technicalScore, communicationScore, professionalism, confidence, speakingPace, interviewPresence, eyeContact, bodyLanguage].filter(s => s != null);
+      const scores = [technicalScore, communicationScore, professionalism, confidence, speakingPace, interviewPresence, eyeContact, bodyLanguage, facialComposure].filter(s => s != null);
       if (scores.length > 0) {
           overallReadiness = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
       }
@@ -345,7 +349,8 @@ export default function InterviewArenaPage() {
   const cameraMetrics = [
     ['Interview Presence', interviewPresence, 'bg-emerald-500'],
     ['Eye Contact', eyeContact, 'bg-teal-500'],
-    ['Body Language', bodyLanguage, 'bg-cyan-500']
+    ['Body Language', bodyLanguage, 'bg-cyan-500'],
+    ['Facial Composure', facialComposure, 'bg-rose-500']
   ].filter(([_, value]) => value != null);
 
   const metrics = [...coreMetrics, ...cameraMetrics];

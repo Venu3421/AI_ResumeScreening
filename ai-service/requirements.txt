@@ -4,5 +4,16 @@ google-genai==1.0.0
 pydantic==2.9.2
 python-multipart==0.0.12
 python-dotenv==1.0.1
-groq==0.25.0
- 
+groq>=1.7.0
+# Phase 2: Semantic Resume Matching
+# WARNING: sentence-transformers pulls torch (~1-2 GB install). First run also downloads
+# the all-MiniLM-L6-v2 checkpoint (~90 MB) from HuggingFace if not already cached.
+sentence-transformers==3.3.1
+scikit-learn==1.6.1
+# nltk: Porter stemmer for morphological keyword matching in Layer 1
+nltk==3.9.1
+
+# Phase 7 Enhancements
+librosa==0.10.2
+soundfile==0.12.1
+pymupdf
