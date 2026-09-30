@@ -82,4 +82,27 @@ public class ResumeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resumeId").value(1L));
     }
+
+    @Test
+    @WithMockUser(username = "john@example.com")
+    void getResumeFile_Success() throws Exception {
+        byte[] pdfBytes = "%PDF-1.4 mock pdf content".getBytes();
+        when(resumeService.getResumeFile("john@example.com")).thenReturn(pdfBytes);
+
+        mockMvc.perform(get("/api/v1/resumes/file")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(content().bytes(pdfBytes));
+    }
+
+    @Test
+    @WithMockUser(username = "john@example.com")
+    void getResumeFile_NotFound() throws Exception {
+        when(resumeService.getResumeFile("john@example.com")).thenReturn(null);
+
+        mockMvc.perform(get("/api/v1/resumes/file")
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+    }
 }

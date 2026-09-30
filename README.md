@@ -56,13 +56,15 @@ The application adopts a **decoupled, polyglot 3-tier microservice architecture*
 
 | Feature | Description | Powered By |
 | :--- | :--- | :--- |
-| **Hybrid ATS Resume Scoring** | Computes deterministic keyword overlap + local dense vector cosine similarity (60/40 weighting) to prevent LLM hallucinations. | Apache Tika, `SentenceTransformer`, Gemini |
+| **Hybrid ATS Resume Scoring** | Computes deterministic keyword overlap + local dense vector cosine similarity (20/80 weighting) scaled against calibrated thresholds (0.40/0.70) to prevent LLM hallucinations. | PyMuPDF, `SentenceTransformer` (`all-MiniLM-L6-v2`), Gemini |
+| **PDF Visual Highlight Overlays** | Word-level coordinate bounding box extraction mapped to matched/missing skills, strengths, weaknesses, and suggestions with interactive PDF viewer. | PyMuPDF `words`, `react-pdf`, Canvas Overlay |
 | **Edge-Vision Eye-Contact Coach** | Measures face mesh landmarks at 3.3 FPS locally in the browser. Zero video streaming to servers ensures maximum privacy and zero network latency. | Google MediaPipe Tasks Vision (WASM) |
 | **Vocal Prosody Analysis** | Measures vocal confidence, pitch variance (`pyin`), silence/pause frequency (`effects.split`), speaking tempo (onset strength), and RMS energy. | `librosa 0.10.2` & `soundfile` |
+| **In-Interview Code Answer Mode** | Integrated Monaco code editor with language selection (JS, Python, Java, C++, SQL, Pseudocode) and dedicated code correctness/complexity evaluation. | Monaco Editor, Groq `qwen/qwen3.8-27b` |
 | **Ultra-Fast Speech Transcription** | Transcribes spoken answers from WebM/WAV audio with near-instantaneous turnaround. | Groq Cloud LPU (`whisper-large-v3`) |
-| **Cognitive Scoring & Model Answers** | Breaks down each response into technical accuracy, communication clarity, structural logic, and suggested corrections. | Groq LLM (`qwen/qwen3.6-27b` / `llama-3.3-70b`) |
-| **Adaptive Question Generator** | Generates customized interview questions targeted specifically to the candidate's resume skills and target job description. | Groq LLM Engine |
-| **Performance Analytics & History** | Visual dashboard tracking score trajectories, strengths, weakness areas, and past interview logs. | React, TailwindCSS, Chart.js / SVG |
+| **Cognitive Scoring & Evaluation** | Evaluates answers across technical correctness, communication clarity, professionalism, and confidence. | Groq LLM (`qwen/qwen3.8-27b`) |
+| **Adaptive Question Generator** | Generates customized opening and follow-up technical & coding questions targeted specifically to the job role. | Groq LLM (`qwen/qwen3.8-27b`) |
+| **Performance Analytics & History** | Visual dashboard tracking weekly readiness trend (smooth SVG Bezier curves), skill breakdown bars, and past interview logs. | React, TailwindCSS, Spring Boot Aggregate API |
 
 ---
 
@@ -71,8 +73,9 @@ The application adopts a **decoupled, polyglot 3-tier microservice architecture*
 ### Frontend (Client Layer)
 - **Framework:** React 19 (`react`, `react-dom`) initialized via Vite
 - **Styling:** TailwindCSS v4 with custom dark mode glassmorphism UI
+- **Code Editor:** `@monaco-editor/react` (in-arena live code & SQL evaluation)
+- **PDF Inspection:** `react-pdf` with coordinate-based highlight overlays
 - **Routing & State:** React Router DOM v7, React Context for JWT auth
-- **Icons & Visuals:** `lucide-react`, Canvas API for eye-contact tracking visualization
 - **Edge Vision AI:** `@mediapipe/tasks-vision` (WebAssembly & WebGL)
 - **Audio Capture:** HTML5 MediaStreams & MediaRecorder API
 
@@ -80,17 +83,18 @@ The application adopts a **decoupled, polyglot 3-tier microservice architecture*
 - **Framework:** Spring Boot 3.3.3 (Java 17)
 - **Security:** Spring Security 6 with stateless JWT authentication & Google OAuth2 client
 - **Persistence:** Spring Data JPA / Hibernate ORM
-- **Document Processing:** Apache Tika 2.9.1 (`tika-core` & `tika-parsers-standard-package`)
-- **HTTP Client:** Spring Web (`RestTemplate` / `WebClient`) for microservice dispatch
+- **HTTP Client:** Spring Web (`RestTemplate`) for microservice dispatch
+- **Analytics:** Null-safe statistical aggregation for candidate dashboard metrics
 - **Database:** PostgreSQL 15+ (local or Supabase cloud)
 
 ### AI Microservice Engine
 - **Framework:** FastAPI with ASGI server (Uvicorn)
+- **PDF Extraction:** `pymupdf` (structure-aware text + word-level bounding boxes)
 - **Audio Processing:** `librosa 0.10.2`, `soundfile`, `numpy`
 - **Embeddings:** `sentence-transformers` (`all-MiniLM-L6-v2`)
 - **External AI Providers:**
-  - **Groq Cloud:** `whisper-large-v3` (STT), `qwen/qwen3.6-27b` / `llama-3.3-70b-versatile` (Reasoning)
-  - **Google Cloud:** `google-genai` SDK (Gemini Flash)
+  - **Groq Cloud:** `whisper-large-v3` (STT), `qwen/qwen3.8-27b` (Evaluation & Question Reasoning)
+  - **Google Cloud:** `google-genai` SDK (`gemini-3.8-flash` with automatic fallback to `gemini-3-flash-preview` on HTTP 429 & 503)
 - **Data Validation:** Pydantic v2 schemas
 
 ---
@@ -146,26 +150,28 @@ CREATE TABLE question_answer_logs (
 
 ### Backend Application Server (`http://localhost:8080`)
 
-#### Authentication (`/api/auth`)
-- `POST /api/auth/register` — Register a new candidate account.
-- `POST /api/auth/login` — Authenticate candidate and receive JWT token.
-- `POST /api/auth/oauth/google` — Exchange Google ID token for JWT session.
+#### Authentication (`/api/v1/auth`)
+- `POST /api/v1/auth/register` — Register a new candidate account.
+- `POST /api/v1/auth/login` — Authenticate candidate and receive JWT token.
+- `POST /api/v1/auth/oauth/google` — Exchange Google ID token for JWT session.
 
-#### Resume Screening (`/api/resumes`)
-- `POST /api/resumes/upload` — Multipart PDF upload; extracts text via Apache Tika and calls AI engine for ATS rating.
-- `GET /api/resumes/my-resumes` — Retrieve authenticated user's analyzed resume & recommendations.
+#### Resume Screening (`/api/v1/resumes`)
+- `POST /api/v1/resumes/upload` — Multipart PDF upload; extracts structured sections, word bounding boxes, and calls AI engine for deterministic ATS scoring and visual highlights.
+- `GET /api/v1/resumes` — Retrieve authenticated user's analyzed resume & recommendations.
+- `GET /api/v1/resumes/file` — Stream original uploaded resume PDF.
 
-#### Mock Interviews (`/api/interviews`)
-- `POST /api/interviews/sessions` — Initialize a new interview session for a given job role and description.
-- `POST /api/interviews/sessions/{id}/evaluate` — Submit answer audio file + edge metrics (WPM, eye contact); returns transcript, prosody, and scoring.
-- `POST /api/interviews/sessions/{id}/complete` — Finalize session and calculate aggregate performance scorecard.
-- `GET /api/interviews/sessions/{id}` — Retrieve full interview session details with all question logs.
-- `GET /api/interviews/sessions` — List user's historical interview sessions.
+#### Mock Interviews (`/api/v1/interview`)
+- `POST /api/v1/interview/start` — Initialize a new interview session for a given job role and description.
+- `POST /api/v1/interview/submit-answer` — Submit answer: supports audio file + edge metrics OR in-arena code answer (`codeAnswer`, `codeLanguage`); returns transcript/code, metrics, and next question.
+- `GET /api/v1/interview/sessions` — List user's historical interview sessions.
+- `GET /api/v1/interview/sessions/{id}` — Retrieve full interview session details with all question logs.
+- `GET /api/v1/interview/stats` — Retrieve aggregated dashboard stats (latest ATS score, average technical/communication scores, and chronological weekly trend points).
 
 ### AI Microservice Engine (`http://localhost:8000`)
-- `POST /ai/screen-resume` — Computes keyword overlap, vector semantic similarity, and Gemini narrative feedback.
-- `POST /ai/evaluate-answer` — Runs Groq Whisper STT, Librosa acoustic prosody analysis, and LLM answer grading.
-- `POST /ai/generate-questions` — Generates adaptive technical & behavioral questions based on resume and job specs.
+- `POST /api/v1/ai/analyze-resume` — Computes 20/80 deterministic score (keyword overlap + dense vector semantic similarity) and Gemini narrative feedback with 429/503 resilient fallback.
+- `POST /api/v1/ai/evaluate-answer` — Evaluates spoken answer via Groq Whisper STT, Librosa acoustic prosody analysis, and Groq `qwen/qwen3.8-27b`.
+- `POST /api/v1/ai/evaluate-code-answer` — Evaluates candidate code/logic answer via Groq `qwen/qwen3.8-27b` with code-specific grading (correctness, complexity, readability).
+- `POST /api/v1/ai/generate-question` — Generates opening interview question based on job description.
 - `GET /health` — Service health check and model loading status.
 
 ---

@@ -7,5 +7,7 @@ import java.util.Optional;
 
 public interface InterviewSessionRepository extends JpaRepository<InterviewSession, Long> {
     List<InterviewSession> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<InterviewSession> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, String status);
+    List<InterviewSession> findByUserIdAndStatusOrderByCreatedAtAsc(Long userId, String status);
     Optional<InterviewSession> findByIdAndUserId(Long id, Long userId);
 }

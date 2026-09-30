@@ -92,7 +92,7 @@ public class InterviewControllerTest {
                 .nextQuestion("What is Spring?")
                 .build();
 
-        when(interviewService.submitAnswer(eq(100L), eq("What is Java?"), any(), eq("john@example.com"), any(), any(), any(), any(), any())).thenReturn(response);
+        when(interviewService.submitAnswer(eq(100L), eq("What is Java?"), any(), eq("john@example.com"), any(), any(), any(), any(), any(), any(), any())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/interview/submit-answer")
                         .file(file)
@@ -103,6 +103,34 @@ public class InterviewControllerTest {
                 .andExpect(jsonPath("$.logId").value(200L))
                 .andExpect(jsonPath("$.transcript").value("Java is OOP"))
                 .andExpect(jsonPath("$.nextQuestion").value("What is Spring?"));
+    }
+
+    @Test
+    @WithMockUser(username = "john@example.com")
+    void submitAnswer_CodeAnswer_Success() throws Exception {
+        SubmitAnswerResponse response = SubmitAnswerResponse.builder()
+                .logId(201L)
+                .transcript("function solve() { return 42; }")
+                .evaluationMetrics(EvaluationMetricsDto.builder()
+                        .technicalScore(90)
+                        .communicationScore(85)
+                        .constructiveFeedback("Good code structure")
+                        .build())
+                .nextQuestion("Explain your complexity.")
+                .build();
+
+        when(interviewService.submitAnswer(eq(100L), eq("Write solve()"), any(), eq("john@example.com"), any(), any(), any(), any(), any(), eq("function solve() { return 42; }"), eq("javascript"))).thenReturn(response);
+
+        mockMvc.perform(multipart("/api/v1/interview/submit-answer")
+                        .param("sessionId", "100")
+                        .param("questionText", "Write solve()")
+                        .param("codeAnswer", "function solve() { return 42; }")
+                        .param("codeLanguage", "javascript")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.logId").value(201L))
+                .andExpect(jsonPath("$.transcript").value("function solve() { return 42; }"))
+                .andExpect(jsonPath("$.nextQuestion").value("Explain your complexity."));
     }
 
     @Test
@@ -142,5 +170,35 @@ public class InterviewControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100L))
                 .andExpect(jsonPath("$.jobDescription").value("Java Dev"));
+    }
+
+    @Test
+    @WithMockUser(username = "john@example.com")
+    void getDashboardStats_Success() throws Exception {
+        DashboardStatsResponse statsResponse = DashboardStatsResponse.builder()
+                .latestAtsScore(88)
+                .avgTechnicalScore(85)
+                .avgCommunicationScore(90)
+                .avgConfidence(80)
+                .avgSpeakingPace(140)
+                .trend(Collections.singletonList(
+                        DashboardStatsResponse.TrendPoint.builder()
+                                .date(java.time.LocalDate.of(2026, 6, 27))
+                                .overallScore(85)
+                                .build()
+                ))
+                .build();
+
+        when(interviewService.getDashboardStats("john@example.com")).thenReturn(statsResponse);
+
+        mockMvc.perform(get("/api/v1/interview/stats")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestAtsScore").value(88))
+                .andExpect(jsonPath("$.avgTechnicalScore").value(85))
+                .andExpect(jsonPath("$.avgCommunicationScore").value(90))
+                .andExpect(jsonPath("$.avgConfidence").value(80))
+                .andExpect(jsonPath("$.avgSpeakingPace").value(140))
+                .andExpect(jsonPath("$.trend[0].overallScore").value(85));
     }
 }

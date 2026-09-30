@@ -31,17 +31,17 @@ class EvaluationMetrics(BaseModel):
         le=100,
         description="Clarity and articulation score (0-100).",
     )
-    professionalism: int = Field(
-        ...,
+    professionalism: Optional[int] = Field(
+        default=None,
         ge=0,
         le=100,
-        description="Tone and professionalism inferred from transcript content (0-100).",
+        description="Tone and professionalism inferred from transcript content (0-100). Null for code-only answers.",
     )
-    confidence: int = Field(
-        ...,
+    confidence: Optional[int] = Field(
+        default=None,
         ge=0,
         le=100,
-        description="Confidence inferred from phrasing, hedging, and filler words (0-100).",
+        description="Confidence inferred from phrasing, hedging, and filler words (0-100). Null for code-only answers.",
     )
     constructiveFeedback: str = Field(
         ...,
@@ -74,11 +74,36 @@ class EvaluationMetrics(BaseModel):
     )
 
 
+class CodeEvaluationRequest(BaseModel):
+    """Request payload for code/logic answer evaluation (no audio)."""
+    code_answer: str = Field(
+        ...,
+        min_length=10,
+        description="The candidate's code or pseudocode answer.",
+    )
+    code_language: str = Field(
+        default="javascript",
+        description="Programming language of the submitted code (e.g., javascript, python, java, cpp, sql, pseudocode).",
+    )
+    question_text: str = Field(
+        ...,
+        description="The interview question that was asked.",
+    )
+    job_description: str = Field(
+        ...,
+        description="The target job description for context.",
+    )
+    question_history: str = Field(
+        default="[]",
+        description="JSON array of previous questions in this session.",
+    )
+
+
 class InterviewEvaluationResponse(BaseModel):
     """Response payload containing the full evaluation of an interview answer."""
     transcript: str = Field(
         ...,
-        description="Full transcription of the candidate's spoken answer.",
+        description="Full transcription of the candidate's spoken answer, or the submitted code text for code answers.",
     )
     evaluation_metrics: Dict[str, object] = Field(
         ...,

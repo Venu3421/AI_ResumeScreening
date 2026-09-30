@@ -37,6 +37,12 @@ public class Resume {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @JdbcTypeCode(SqlTypes.VARBINARY)
+    @Column(name = "pdf_data", columnDefinition = "BYTEA")
+    @Basic(fetch = FetchType.LAZY)
+    @ToString.Exclude
+    private byte[] pdfData;
+
     @PrePersist
     @PreUpdate
     protected void onUpdate() {

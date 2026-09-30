@@ -3,6 +3,27 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+export const isSessionExpired = (createdAt) => {
+  if (!createdAt) return false;
+  const createdTime = new Date(createdAt).getTime();
+  if (isNaN(createdTime)) return false;
+  return Date.now() - createdTime > ONE_DAY_MS;
+};
+
+export const getRemainingTimeText = (createdAt) => {
+  if (!createdAt) return null;
+  const createdTime = new Date(createdAt).getTime();
+  if (isNaN(createdTime)) return null;
+  const remainingMs = ONE_DAY_MS - (Date.now() - createdTime);
+  if (remainingMs <= 0) return 'Expired';
+  const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+  const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) return `${hours}h ${minutes}m left`;
+  return `${minutes}m left`;
+};
+
 export default function HistoryPage() {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -97,6 +118,8 @@ export default function HistoryPage() {
               <div className="space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-250px)]">
                 {sessions.map((sessionItem) => {
                   const active = selectedSession?.id === sessionItem.id;
+                  const isCompleted = sessionItem.status === 'COMPLETED';
+                  const expired = !isCompleted && isSessionExpired(sessionItem.createdAt);
                   return (
                     <button
                       key={sessionItem.id}
@@ -109,11 +132,30 @@ export default function HistoryPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <p className="line-clamp-2 text-sm font-extrabold leading-5 text-slate-900">{sessionItem.jobDescription}</p>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${sessionItem.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                          {sessionItem.status === 'COMPLETED' ? `${sessionItem.overallScore}%` : 'Active'}
-                        </span>
+                        {isCompleted ? (
+                          <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700">
+                            {sessionItem.overallScore}%
+                          </span>
+                        ) : expired ? (
+                          <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                            Expired
+                          </span>
+                        ) : (
+                          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-extrabold text-amber-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Active
+                          </span>
+                        )}
                       </div>
-                      <p className="mt-3 text-xs font-semibold text-slate-500">{new Date(sessionItem.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <div className="mt-3 flex items-center justify-between gap-2 text-xs font-semibold">
+                        <span className="text-slate-500">{new Date(sessionItem.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        {!isCompleted && !expired && (
+                          <span className="inline-flex items-center gap-0.5 font-bold text-primary">
+                            Resume
+                            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                          </span>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -128,15 +170,50 @@ export default function HistoryPage() {
               <article className="app-card overflow-hidden rounded-[28px]">
                 <header className="border-b border-slate-200 p-6 sm:p-8">
                   <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-                    <div>
-                      <span className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] ${selectedSession.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{selectedSession.status}</span>
-                      <h2 className="max-w-3xl text-2xl font-extrabold leading-tight text-slate-950 sm:text-3xl">{selectedSession.jobDescription}</h2>
+                    <div className="flex-1 min-w-0 pr-0 xl:pr-6">
+                      <span className={`mb-4 inline-flex rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] ${selectedSession.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : isSessionExpired(selectedSession.createdAt) ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'}`}>
+                        {selectedSession.status === 'COMPLETED' ? 'COMPLETED' : isSessionExpired(selectedSession.createdAt) ? 'EXPIRED' : 'ACTIVE'}
+                      </span>
+                      <h2 className="text-2xl font-extrabold leading-tight text-slate-950 sm:text-3xl">{selectedSession.jobDescription}</h2>
                       <p className="mt-3 text-sm font-semibold text-slate-500">Created {new Date(selectedSession.createdAt).toLocaleString()}</p>
                     </div>
-                    {selectedSession.status === 'COMPLETED' && (
-                      <div className="rounded-[24px] border border-primary/15 bg-blue-50 p-5 text-center xl:min-w-36">
+                    {selectedSession.status === 'COMPLETED' ? (
+                      <div className="shrink-0 rounded-[24px] border border-primary/15 bg-blue-50 p-5 text-center xl:min-w-36">
                         <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Overall</p>
                         <p className="mt-1 text-4xl font-extrabold text-primary">{selectedSession.overallScore}%</p>
+                      </div>
+                    ) : !isSessionExpired(selectedSession.createdAt) ? (
+                      <div className="shrink-0 flex flex-col items-start xl:items-end gap-2.5">
+                        <button
+                          type="button"
+                          id="resume-interview-btn"
+                          onClick={() => navigate(`/interview?sessionId=${selectedSession.id}`)}
+                          className="gradient-primary inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-extrabold shadow-lg shadow-primary/25 transition hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">play_circle</span>
+                          Resume Interview
+                        </button>
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                          <span className="material-symbols-outlined text-[15px] text-amber-600">schedule</span>
+                          {getRemainingTimeText(selectedSession.createdAt)} to complete
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="shrink-0 flex flex-col items-start xl:items-end gap-2.5">
+                        <button
+                          type="button"
+                          id="resume-interview-btn-disabled"
+                          disabled
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-6 py-3.5 text-sm font-extrabold text-slate-400 cursor-not-allowed shadow-none"
+                          title="Interview sessions can only be resumed within 24 hours of creation."
+                        >
+                          <span className="material-symbols-outlined text-[20px]">lock_clock</span>
+                          Resume Interview (Disabled)
+                        </button>
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">history_toggle_off</span>
+                          24h resume window passed
+                        </div>
                       </div>
                     )}
                   </div>
@@ -157,7 +234,7 @@ export default function HistoryPage() {
                             <div className="space-y-5">
                               <div className="rounded-2xl bg-slate-50 p-4">
                                 <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Transcript</p>
-                                <p className="text-sm leading-7 text-slate-700">{log.transcript}</p>
+                                <p className="text-sm leading-7 text-slate-700 whitespace-pre-wrap font-mono text-xs">{log.transcript}</p>
                               </div>
 
                               {log.evaluationMetrics && (
@@ -188,9 +265,36 @@ export default function HistoryPage() {
                               )}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-700">
-                              <span className="material-symbols-outlined text-[20px]">pending</span>
-                              This question has not been answered yet.
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-5 text-sm">
+                              <div className="flex items-center gap-3 font-semibold text-amber-900">
+                                <span className="material-symbols-outlined text-[24px] text-amber-600">pending</span>
+                                <div>
+                                  <p className="font-bold">This question has not been answered yet.</p>
+                                  <p className="mt-0.5 text-xs font-normal text-amber-700">
+                                    {!isSessionExpired(selectedSession.createdAt)
+                                      ? `You can resume this mock session (${getRemainingTimeText(selectedSession.createdAt)} remaining).`
+                                      : 'The 24-hour window to complete this interview has passed.'}
+                                  </p>
+                                </div>
+                              </div>
+                              {!isSessionExpired(selectedSession.createdAt) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/interview?sessionId=${selectedSession.id}`)}
+                                  className="shrink-0 gradient-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold shadow-md shadow-primary/20 transition hover:scale-[1.02] active:scale-[0.98]"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                  Continue here
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="shrink-0 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-bold text-slate-400 cursor-not-allowed"
+                                >
+                                  Expired
+                                </button>
+                              )}
                             </div>
                           )}
                         </section>

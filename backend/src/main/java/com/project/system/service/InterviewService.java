@@ -6,11 +6,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.system.dto.*;
 import com.project.system.entity.InterviewSession;
 import com.project.system.entity.QuestionAnswerLog;
+import com.project.system.entity.Resume;
 import com.project.system.entity.User;
 import com.project.system.exception.BadRequestException;
 import com.project.system.exception.ResourceNotFoundException;
 import com.project.system.repository.InterviewSessionRepository;
 import com.project.system.repository.QuestionAnswerLogRepository;
+import com.project.system.repository.ResumeRepository;
 import com.project.system.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,6 +30,11 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,6 +47,7 @@ public class InterviewService {
     private final InterviewSessionRepository sessionRepository;
     private final QuestionAnswerLogRepository logRepository;
     private final UserRepository userRepository;
+    private final ResumeRepository resumeRepository;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
@@ -50,10 +58,12 @@ public class InterviewService {
             InterviewSessionRepository sessionRepository,
             QuestionAnswerLogRepository logRepository,
             UserRepository userRepository,
+            ResumeRepository resumeRepository,
             ObjectMapper objectMapper) {
         this.sessionRepository = sessionRepository;
         this.logRepository = logRepository;
         this.userRepository = userRepository;
+        this.resumeRepository = resumeRepository;
         this.objectMapper = objectMapper;
         this.restTemplate = new RestTemplate();
     }
@@ -145,6 +155,13 @@ public class InterviewService {
         return null;
     }
 
+    private String normalizeQuestionText(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("\r\n", "\n").replace("\r", "\n").trim();
+    }
+
     // ==================== Session Management ====================
 
     @Transactional
@@ -168,6 +185,9 @@ public class InterviewService {
                 throw new BadRequestException("AI service failed to generate first question.");
             }
             firstQuestion = (String) aiResponse.get("question");
+            if (firstQuestion != null) {
+                firstQuestion = normalizeQuestionText(firstQuestion);
+            }
         } catch (org.springframework.web.client.RestClientException e) {
             throw new BadRequestException("Failed to generate first question: " + e.getMessage());
         }
@@ -205,6 +225,21 @@ public class InterviewService {
                                               Integer eyeContact,
                                               Integer bodyLanguage,
                                               Integer facialComposure) {
+        return submitAnswer(sessionId, questionText, audioFile, userEmail,
+                durationSeconds, interviewPresence, eyeContact, bodyLanguage, facialComposure,
+                null, null);
+    }
+
+    @Transactional
+    public SubmitAnswerResponse submitAnswer(Long sessionId, String questionText,
+                                              MultipartFile audioFile, String userEmail,
+                                              Integer durationSeconds,
+                                              Integer interviewPresence,
+                                              Integer eyeContact,
+                                              Integer bodyLanguage,
+                                              Integer facialComposure,
+                                              String codeAnswer,
+                                              String codeLanguage) {
         // 1. Find and Verify Session
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview session not found: " + sessionId));
@@ -217,12 +252,21 @@ public class InterviewService {
             throw new BadRequestException("Interview session is already completed.");
         }
 
-        // 2. Verify Audio file
-        if (audioFile.isEmpty()) {
-            throw new BadRequestException("Submitted audio file is empty.");
+        if (session.getCreatedAt() != null && session.getCreatedAt().plusDays(1).isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Interview session has expired. Resuming is only permitted within 24 hours of creation.");
         }
-        if (audioFile.getSize() < 1024) { // Let's check size instead of raw duration, 1KB minimum
-            throw new BadRequestException("Audio file is too short.");
+
+        // 2. Determine answer mode: code or audio
+        boolean isCodeAnswer = codeAnswer != null && !codeAnswer.isBlank();
+
+        if (!isCodeAnswer) {
+            // Audio mode validation
+            if (audioFile == null || audioFile.isEmpty()) {
+                throw new BadRequestException("Either an audio file or a code answer is required.");
+            }
+            if (audioFile.getSize() < 1024) {
+                throw new BadRequestException("Audio file is too short.");
+            }
         }
 
         // 3. Construct Question History
@@ -239,59 +283,92 @@ public class InterviewService {
             questionHistoryJson = "[]";
         }
 
-        // 4. Send Multipart Request to AI Service
-        String aiEndpoint = aiServiceUrl + "/api/v1/ai/evaluate-answer";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-
-        ByteArrayResource fileResource;
-        try {
-            fileResource = new ByteArrayResource(audioFile.getBytes()) {
-                @Override
-                public String getFilename() {
-                    return audioFile.getOriginalFilename() != null ? audioFile.getOriginalFilename() : "answer.webm";
-                }
-            };
-        } catch (IOException e) {
-            throw new BadRequestException("Failed to read audio file: " + e.getMessage());
-        }
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", fileResource);
-        body.add("question_text", questionText);
-        body.add("job_description", session.getJobDescription());
-        body.add("question_history", questionHistoryJson);
-        // Forward client-measured recording duration to ai-service for speaking pace calculation
-        if (durationSeconds != null) {
-            body.add("duration_seconds", String.valueOf(durationSeconds));
-        }
-
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        // 4. Send Request to AI Service (branched by answer mode)
         AiEvaluationResponse aiResponse;
-        try {
-            aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiEvaluationResponse.class);
-            if (aiResponse == null) {
-                throw new BadRequestException("AI service failed to evaluate answer.");
+
+        if (isCodeAnswer) {
+            // ---- Code Answer Path: JSON body to /evaluate-code-answer ----
+            String aiEndpoint = aiServiceUrl + "/api/v1/ai/evaluate-code-answer";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> requestBody = new java.util.LinkedHashMap<>();
+            requestBody.put("code_answer", codeAnswer);
+            requestBody.put("code_language", codeLanguage != null ? codeLanguage : "javascript");
+            requestBody.put("question_text", questionText);
+            requestBody.put("job_description", session.getJobDescription());
+            requestBody.put("question_history", questionHistoryJson);
+
+            HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+            try {
+                aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiEvaluationResponse.class);
+                if (aiResponse == null) {
+                    throw new BadRequestException("AI service failed to evaluate code answer.");
+                }
+            } catch (org.springframework.web.client.RestClientException e) {
+                throw new BadRequestException("AI code evaluation failed: " + e.getMessage());
             }
-        } catch (org.springframework.web.client.RestClientException e) {
-            throw new BadRequestException("AI evaluation failed: " + e.getMessage());
+        } else {
+            // ---- Audio Answer Path: Multipart to /evaluate-answer (existing flow) ----
+            String aiEndpoint = aiServiceUrl + "/api/v1/ai/evaluate-answer";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            ByteArrayResource fileResource;
+            try {
+                fileResource = new ByteArrayResource(audioFile.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return audioFile.getOriginalFilename() != null ? audioFile.getOriginalFilename() : "answer.webm";
+                    }
+                };
+            } catch (IOException e) {
+                throw new BadRequestException("Failed to read audio file: " + e.getMessage());
+            }
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", fileResource);
+            body.add("question_text", questionText);
+            body.add("job_description", session.getJobDescription());
+            body.add("question_history", questionHistoryJson);
+            if (durationSeconds != null) {
+                body.add("duration_seconds", String.valueOf(durationSeconds));
+            }
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            try {
+                aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiEvaluationResponse.class);
+                if (aiResponse == null) {
+                    throw new BadRequestException("AI service failed to evaluate answer.");
+                }
+            } catch (org.springframework.web.client.RestClientException e) {
+                throw new BadRequestException("AI evaluation failed: " + e.getMessage());
+            }
         }
 
         // 5. Update Current Log
-        // Find log corresponding to this question (usually the latest active log)
+        // Find log corresponding to this question (robustly matching normalized text with CRLF/whitespace handling,
+        // falling back to the currently pending unanswered log in this session).
+        String normalizedSubmitted = normalizeQuestionText(questionText);
         QuestionAnswerLog currentLog = logs.stream()
-                .filter(l -> l.getQuestionText().equals(questionText) && l.getTranscript() == null)
+                .filter(l -> l.getTranscript() == null && normalizeQuestionText(l.getQuestionText()).equals(normalizedSubmitted))
                 .findFirst()
+                .or(() -> logs.stream()
+                        .filter(l -> l.getTranscript() == null)
+                        .findFirst())
                 .orElseThrow(() -> new BadRequestException("Question log not found or already evaluated: " + questionText));
 
         // Merge frontend-supplied camera presence metrics (Phase 4) into the
         // ai-service response before storing. The ai-service returns these as null;
         // the frontend overwrites them when camera data is available.
+        // For code answers, camera metrics stay null (no camera data collected in code mode).
         Map<String, Object> metricsToStore = new java.util.LinkedHashMap<>(aiResponse.getEvaluationMetrics());
-        if (interviewPresence != null) metricsToStore.put("interviewPresence", interviewPresence);
-        if (eyeContact != null) metricsToStore.put("eyeContact", eyeContact);
-        if (bodyLanguage != null) metricsToStore.put("bodyLanguage", bodyLanguage);
-        if (facialComposure != null) metricsToStore.put("facialComposure", facialComposure);
+        if (!isCodeAnswer) {
+            if (interviewPresence != null) metricsToStore.put("interviewPresence", interviewPresence);
+            if (eyeContact != null) metricsToStore.put("eyeContact", eyeContact);
+            if (bodyLanguage != null) metricsToStore.put("bodyLanguage", bodyLanguage);
+            if (facialComposure != null) metricsToStore.put("facialComposure", facialComposure);
+        }
 
         String metricsJsonStr;
         try {
@@ -346,6 +423,9 @@ public class InterviewService {
         } else {
             // Save Next Question for session progression
             nextQuestion = aiResponse.getNextQuestion();
+            if (nextQuestion != null) {
+                nextQuestion = normalizeQuestionText(nextQuestion);
+            }
             QuestionAnswerLog nextLog = QuestionAnswerLog.builder()
                     .session(session)
                     .questionText(nextQuestion)
@@ -365,6 +445,7 @@ public class InterviewService {
                 .interviewPresence(toInteger(metricsToStore.get("interviewPresence")))
                 .eyeContact(toInteger(metricsToStore.get("eyeContact")))
                 .bodyLanguage(toInteger(metricsToStore.get("bodyLanguage")))
+                .facialComposure(toInteger(metricsToStore.get("facialComposure")))
                 .build();
 
         return SubmitAnswerResponse.builder()
@@ -424,6 +505,101 @@ public class InterviewService {
                 .createdAt(session.getCreatedAt())
                 .logs(logDtos)
                 .build();
+    }
+
+    // ==================== Dashboard Stats Aggregation ====================
+
+    @Transactional(readOnly = true)
+    public DashboardStatsResponse getDashboardStats(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
+        Long userId = user.getId();
+
+        // 1. Latest ATS Score — from user's most recently updated Resume, or null if none
+        Integer latestAtsScore = resumeRepository.findTopByUserIdOrderByUpdatedAtDesc(userId)
+                .or(() -> resumeRepository.findByUserId(userId))
+                .map(Resume::getAtsScore)
+                .orElse(null);
+
+        // 2. Fetch all COMPLETED sessions chronologically
+        List<InterviewSession> completedSessions = sessionRepository
+                .findByUserIdAndStatusOrderByCreatedAtAsc(userId, "COMPLETED");
+
+        if (completedSessions.isEmpty()) {
+            return DashboardStatsResponse.builder()
+                    .latestAtsScore(latestAtsScore)
+                    .avgTechnicalScore(null)
+                    .avgCommunicationScore(null)
+                    .avgConfidence(null)
+                    .avgSpeakingPace(null)
+                    .trend(new ArrayList<>())
+                    .build();
+        }
+
+        // 3. Parse all evaluated QA logs across completed sessions
+        List<EvaluationMetricsDto> allMetrics = new ArrayList<>();
+        for (InterviewSession session : completedSessions) {
+            List<QuestionAnswerLog> logs = logRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
+            for (QuestionAnswerLog log : logs) {
+                if (log.getMetricsJson() != null) {
+                    EvaluationMetricsDto metrics = translateLegacyMetrics(log.getMetricsJson());
+                    if (metrics != null) {
+                        allMetrics.add(metrics);
+                    }
+                }
+            }
+        }
+
+        // 4. Compute per-dimension null-safe averages (skipping nulls)
+        Integer avgTechnicalScore = nullSafeAverage(allMetrics.stream()
+                .map(EvaluationMetricsDto::getTechnicalScore)
+                .collect(Collectors.toList()));
+
+        Integer avgCommunicationScore = nullSafeAverage(allMetrics.stream()
+                .map(EvaluationMetricsDto::getCommunicationScore)
+                .collect(Collectors.toList()));
+
+        Integer avgConfidence = nullSafeAverage(allMetrics.stream()
+                .map(EvaluationMetricsDto::getConfidence)
+                .collect(Collectors.toList()));
+
+        Integer avgSpeakingPace = nullSafeAverage(allMetrics.stream()
+                .map(EvaluationMetricsDto::getSpeakingPace)
+                .collect(Collectors.toList()));
+
+        // 5. Build chronological trend per completed session
+        List<DashboardStatsResponse.TrendPoint> trend = completedSessions.stream()
+                .filter(s -> s.getOverallScore() != null)
+                .map(s -> DashboardStatsResponse.TrendPoint.builder()
+                        .date(s.getCreatedAt() != null ? s.getCreatedAt().toLocalDate() : LocalDate.now())
+                        .overallScore(s.getOverallScore())
+                        .build())
+                .collect(Collectors.toList());
+
+        return DashboardStatsResponse.builder()
+                .latestAtsScore(latestAtsScore)
+                .avgTechnicalScore(avgTechnicalScore)
+                .avgCommunicationScore(avgCommunicationScore)
+                .avgConfidence(avgConfidence)
+                .avgSpeakingPace(avgSpeakingPace)
+                .trend(trend)
+                .build();
+    }
+
+    /**
+     * Compute the average of a list of nullable Integers, skipping nulls.
+     * Returns null if no non-null values exist.
+     */
+    private Integer nullSafeAverage(List<Integer> values) {
+        double sum = 0;
+        int count = 0;
+        for (Integer v : values) {
+            if (v != null) {
+                sum += v;
+                count++;
+            }
+        }
+        return count > 0 ? (int) Math.round(sum / count) : null;
     }
 
     // Helper Response mapping classes

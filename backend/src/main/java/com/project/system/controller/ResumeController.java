@@ -2,6 +2,8 @@ package com.project.system.controller;
 
 import com.project.system.dto.ResumeUploadResponse;
 import com.project.system.service.ResumeService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,5 +36,21 @@ public class ResumeController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieve the original PDF file for the authenticated user's resume.
+     * Returns 404 if no resume exists or no PDF is stored.
+     */
+    @GetMapping("/file")
+    public ResponseEntity<byte[]> getResumeFile(Principal principal) {
+        byte[] pdfData = resumeService.getResumeFile(principal.getName());
+        if (pdfData == null || pdfData.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("inline", "resume.pdf");
+        return ResponseEntity.ok().headers(headers).body(pdfData);
     }
 }

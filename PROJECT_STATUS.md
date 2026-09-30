@@ -32,9 +32,10 @@ The system has progressed through Phases 1–6: the hybrid Groq/Gemini pipeline 
 | Endpoint | HTTP Method | Primary AI Model / Provider | Processing Mode | Description & Output Schema |
 | :--- | :--- | :--- | :--- | :--- |
 | `/health` | `GET` | None | Synchronous | Service health check returning `{"status": "healthy", "service": "...", "version": "1.1.0"}`. |
-| `/api/v1/ai/analyze-resume` | `POST` | **Google Gemini** (`gemini-3.5-flash` via `google-genai` SDK) | Text-to-Text Generative JSON | Takes `ResumeAnalysisRequest` (`resume_text`, `job_description`). Calculates narrative ATS score (0–100), extracts keyword gaps, strengths, weaknesses, rewrite suggestions, and generates 5 interview questions. Returns `ResumeAnalysisResponse`. |
-| `/api/v1/ai/evaluate-answer` | `POST` | **Groq Whisper** (`whisper-large-v3`) + **Groq Qwen** (`qwen/qwen3.6-27b`) | Multi-step Hybrid Pipeline | **Step A:** Groq Whisper transcribes audio (`verbose_json` for STT & audio duration).<br>**Step B:** Python calculates speaking pace score (words per minute heuristic with 3-tier fallback).<br>**Step C:** Groq Qwen evaluates transcript against job context with 1 automatic retry on failure, scoring `technicalScore`, `communicationScore`, `professionalism`, `confidence`, and generating `constructiveFeedback` + `nextQuestion`. Returns `InterviewEvaluationResponse`. |
-| `/api/v1/ai/generate-question` | `POST` | **Groq Qwen** (`qwen/qwen3.6-27b`) | Text-to-Text Generative JSON | Generates opening interview question based on job description. Returns `{"question": "..."}`. |
+| `/api/v1/ai/analyze-resume` | `POST` | **Deterministic Engine** + **Google Gemini** (`gemini-3.8-flash`, resilient fallback to `gemini-3-flash-preview` on 429/503) | Multi-step Hybrid Pipeline | Takes PDF file or raw text + `job_description`. Computes deterministic ATS score (20% keyword, 80% SentenceTransformers `all-MiniLM-L6-v2`), extracts word bounding boxes (`PyMuPDF`), generates strengths, weaknesses, rewrite suggestions, and 5 interview questions. Returns `ResumeAnalysisResponse`. |
+| `/api/v1/ai/evaluate-answer` | `POST` | **Groq Whisper** (`whisper-large-v3`) + **Librosa** + **Groq Qwen** (`qwen/qwen3.8-27b`) | Multi-step Hybrid Pipeline | **Step A:** Groq Whisper transcribes audio (`verbose_json` for STT & audio duration).<br>**Step B:** Librosa acoustic prosody analysis (pitch variance, pause frequency, speaking rate variability, energy consistency).<br>**Step C:** Groq Qwen evaluates transcript against job context with 1 automatic retry on failure, scoring `technicalScore`, `communicationScore`, `professionalism`, `confidence` (composite LLM + prosody), and generating `constructiveFeedback` + `nextQuestion`. Returns `InterviewEvaluationResponse`. |
+| `/api/v1/ai/evaluate-code-answer` | `POST` | **Groq Qwen** (`qwen/qwen3.8-27b`) | Text-to-Text Generative JSON | Takes `CodeEvaluationRequest` (`code_answer`, `code_language`, `question_text`, `job_description`, `question_history`). Bypasses Whisper and prosody. Evaluates code logic, syntax validity, complexity awareness, readability, comments/confidence. Returns `InterviewEvaluationResponse`. |
+| `/api/v1/ai/generate-question` | `POST` | **Groq Qwen** (`qwen/qwen3.8-27b`) | Text-to-Text Generative JSON | Generates opening foundational technical interview question based on job description. Returns `{"question": "..."}`. |
 
 #### Dependencies Listed in `ai-service/requirements.txt`
 * `fastapi==0.115.0`
@@ -280,60 +281,45 @@ In [`InterviewService.java`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20I
 
 | Feature | Status | Verification & Code Evidence |
 | :--- | :---: | :--- |
-| **Groq Whisper for speech-to-text transcription** | **DONE** | [`ai-service/main.py:190-218`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L190-L218): Calls `groq_client.audio.transcriptions.create` using `model="whisper-large-v3"` with `response_format="verbose_json"` to capture both `text` and `duration`. |
-| **Groq Qwen for answer evaluation** | **DONE** | [`ai-service/main.py:323-377`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L323-L377): Migrated to `qwen/qwen3.6-27b` via Groq Chat Completions API with 1 retry on failure. Returns 4 core scores, feedback, and next question. |
-| **Groq Qwen for question generation** | **DONE** | [`ai-service/main.py:381-431`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L381-L431): `POST /api/v1/ai/generate-question` migrated to `qwen/qwen3.6-27b`. Produces role-specific opening question. |
-| **Gemini for resume analysis (narrative)** | **DONE** | [`ai-service/main.py:86-157`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L86-L157): Uses `gemini-3.5-flash` via `google-genai` SDK for ATS scoring, keyword extraction, and suggestions. |
-| **Camera-based interview coaching (MediaPipe)** | **DONE** | [`frontend/src/utils/mediapipeCoach.js`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/utils/mediapipeCoach.js): Uses `@mediapipe/tasks-vision` `FaceLandmarker` running client-side at ~3.3 fps (300ms intervals). Computes `interviewPresence`, `eyeContact`, and `bodyLanguage`. Passed in `submitAnswer` form data in [`InterviewArenaPage.jsx:278-283`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/InterviewArenaPage.jsx#L278-L283). |
-| **Real-time coaching tips (debounced)** | **DONE** | [`frontend/src/utils/mediapipeCoach.js:332-377`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/utils/mediapipeCoach.js#L332-L377): `getCoachingTip` debounces by 6,000ms (`TIP_DEBOUNCE_MS`) across 3 progressive alerts. Displayed in [`InterviewArenaPage.jsx:460-465`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/InterviewArenaPage.jsx#L460-L465) as a pill overlay. |
+| **Groq Whisper for speech-to-text transcription** | **DONE** | [`ai-service/main.py:404-433`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L404-L433): Calls `groq_client.audio.transcriptions.create` using `model="whisper-large-v3"` with `response_format="verbose_json"` to capture both `text` and `duration`. |
+| **Groq Qwen for answer evaluation** | **DONE** | [`ai-service/main.py:591-665`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L591-L665): Uses `qwen/qwen3.8-27b` via Groq Chat Completions API with 1 retry on failure. Returns 4 core scores, feedback, and next question. |
+| **Groq Qwen for question generation** | **DONE** | [`ai-service/main.py:800-848`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L800-L848): `POST /api/v1/ai/generate-question` uses `qwen/qwen3.8-27b`. Produces role-specific opening question. |
+| **In-Interview Code Answer Mode** | **DONE** | [`frontend/src/pages/InterviewArenaPage.jsx:840-893`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/InterviewArenaPage.jsx#L840-L893), [`ai-service/main.py:670-782`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L670-L782), [`InterviewService.java:289-310`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/backend/src/main/java/com/project/system/service/InterviewService.java#L289-L310): Monaco editor + `/api/v1/ai/evaluate-code-answer` via `qwen/qwen3.8-27b`. Bypasses Whisper and prosody. |
+| **Gemini for resume analysis (narrative + fallback)** | **DONE** | [`ai-service/main.py:220-255`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L220-L255): Uses `gemini-3.8-flash` with automatic fallback to `gemini-3-flash-preview` on HTTP 429 and 503 errors. |
+| **Semantic resume screening (embeddings)** | **DONE** | [`ai-service/resume_matcher.py`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/resume_matcher.py): 20% stemmed keyword match + 80% dense vector cosine similarity via `SentenceTransformer` (`all-MiniLM-L6-v2`) calibrated to 0.40/0.70 thresholds. |
+| **Word-level PDF coordinate highlight mapping** | **DONE** | [`ai-service/pdf_extractor.py:109-357`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/pdf_extractor.py#L109-L357), [`frontend/src/components/PdfHighlightViewer.jsx`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/components/PdfHighlightViewer.jsx): `extract_word_coordinates` and `build_highlight_map` generate bounding boxes for matched keywords, strengths, suggestions, and gaps rendered in interactive PDF viewer. |
+| **Vocal confidence via librosa prosody** | **DONE** | [`ai-service/main.py:452-520`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/ai-service/main.py#L452-L520): Librosa extracts pitch variance (`pyin`), silence/pause frequency (`effects.split`), speaking rate variability, and RMS energy consistency. Blended 60% LLM + 40% prosody for composite confidence. |
+| **Camera-based interview coaching (MediaPipe)** | **DONE** | [`frontend/src/utils/mediapipeCoach.js`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/utils/mediapipeCoach.js): `@mediapipe/tasks-vision` `FaceLandmarker` client-side at ~3.3 fps (300ms intervals). Computes `interviewPresence`, `eyeContact`, and `bodyLanguage`. |
+| **Dynamic dashboard stats & weekly trend** | **DONE** | [`backend/src/main/java/com/project/system/service/InterviewService.java:512-587`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/backend/src/main/java/com/project/system/service/InterviewService.java#L512-L587), [`frontend/src/pages/DashboardPage.jsx:283-457`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L283-L457): `GET /api/v1/interview/stats` null-safe aggregations, SVG Bezier weekly trend chart, and skill breakdown bars. |
+| **Real-time coaching tips (debounced)** | **DONE** | [`frontend/src/utils/mediapipeCoach.js:332-377`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/utils/mediapipeCoach.js#L332-L377): `getCoachingTip` debounces by 6,000ms (`TIP_DEBOUNCE_MS`) across 3 progressive alerts. Displayed in [`InterviewArenaPage.jsx`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/InterviewArenaPage.jsx) as a pill overlay. |
 | **Extended 8-metric performance report** | **DONE** | Supported end-to-end across `ai-service` schema, Spring Boot DTO (`EvaluationMetricsDto.java`), backend service merging, database JSON, and frontend presentation. |
-| **Legacy metric backward compatibility** | **DONE** | [`backend/src/main/java/com/project/system/service/InterviewService.java:85-132`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/backend/src/main/java/com/project/system/service/InterviewService.java#L85-L132): `translateLegacyMetrics()` dynamically maps old rows containing `technicalAccuracy`, `communicationClarity`, `structuralLogic` into the 8-metric DTO. Verified with unit tests in `InterviewServiceTest.java`. |
-| **Live sidebar metric display fix** | **DONE** | [`frontend/src/pages/InterviewArenaPage.jsx:313-352`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/InterviewArenaPage.jsx#L313-L352): Stale field names removed. Arena sidebar displays all non-null metrics with color-coded progress bars. |
-| **History page report UI showing all 8 metrics** | **DONE** | [`frontend/src/pages/HistoryPage.jsx:165-180`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/HistoryPage.jsx#L165-L180): Iterates over all 8 metrics (`Technical`, `Communication`, `Professionalism`, `Confidence`, `Pace`, `Presence`, `Eye Contact`, `Body Language`) filtering out nulls. |
-| **Semantic resume screening (embeddings)** | **NOT STARTED** | Phase 2 planned feature. Not in codebase. Currently uses generative prompt heuristics. |
-| **Vocal confidence via librosa prosody** | **NOT STARTED** | Future enhancement. Audio is evaluated textually after transcription; no acoustic prosody extraction currently exists. |
-| **Facial emotion via blendshapes** | **NOT STARTED** | Future enhancement. `outputFaceBlendshapes` is disabled in `mediapipeCoach.js`; only facial pose/displacement landmarks are evaluated. |
+| **Legacy metric backward compatibility** | **DONE** | [`backend/src/main/java/com/project/system/service/InterviewService.java:95-144`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/backend/src/main/java/com/project/system/service/InterviewService.java#L95-L144): `translateLegacyMetrics()` dynamically maps old rows containing `technicalAccuracy`, `communicationClarity`, `structuralLogic` into the 8-metric DTO. Verified with unit tests. |
 
 ---
 
-## 4. Known Issues, Bugs & Discrepancies
+## 4. Prior Issues & Audit Resolution Log
 
-### 4.1 Bugs Spotted in the Code
-
-1. **Uncaught Error Variable in `InterviewArenaPage.jsx`:**
-   * **Location:** [`frontend/src/pages/InterviewArenaPage.jsx:156-158`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/InterviewArenaPage.jsx#L156-L158)
-   * **Issue:** 
-     ```javascript
-     } catch {
-       setError(err.response?.data?.message || 'Failed to start mock session. Please try again.');
-     }
-     ```
-     The `catch` statement uses optional catch binding (`catch {`) without binding `err`, but the body references `err.response`. If session creation fails, JavaScript throws an unhandled `ReferenceError: err is not defined`.
-   * **Fix Required:** Change to `} catch (err) {`.
-
-2. **Stale Metric Label in `DashboardPage.jsx`:**
-   * **Location:** [`frontend/src/pages/DashboardPage.jsx:14,67`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L14)
-   * **Issue:** `DashboardPage.jsx` still initializes state with `technicalAccuracy: 84` and renders a card labeled `"Technical accuracy"`, which is the old metric name superseded by `technicalScore`.
-
-3. **Missing Resume Data Binding in `ResumeAnalyzerPage.jsx`:**
-   * **Location:** [`frontend/src/pages/ResumeAnalyzerPage.jsx:241-243`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/ResumeAnalyzerPage.jsx#L241-L243)
-   * **Issue:** The page renders hardcoded dummy strengths `['Project impact', 'Relevant skills', 'Readable structure', 'Role focus']` instead of mapping `results.strengths` returned by the backend API.
+All bugs previously identified in prior audits have been resolved in the codebase:
+1. **Uncaught Error Variable in `InterviewArenaPage.jsx`:** **RESOLVED** (`catch (err)` correctly bound).
+2. **Stale Metric Label in `DashboardPage.jsx`:** **RESOLVED** (Replaced by `technicalScore` and dynamic aggregate statistics from `/api/v1/interview/stats`).
+3. **Missing Resume Data Binding in `ResumeAnalyzerPage.jsx`:** **RESOLVED** (Directly maps `results.strengths`, `results.weaknesses`, `results.suggestions`, and interactive coordinate highlights).
    * **Issue:** `results.weaknesses` returned by the API is completely omitted from the UI.
 
-### 4.2 Hardcoded Values & Mock Data Present
+### 4.2 Dynamic Data Integration Status
 
-1. **Dashboard Mock Stats:**
-   * [`frontend/src/pages/DashboardPage.jsx:10-15`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L10-L15): Defaults to `totalInterviews: 12`, `avgScore: 78`, `atsScore: 82`, `technicalAccuracy: 84`.
-   * [`frontend/src/pages/DashboardPage.jsx:33-34`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L33-L34): Even when session data loads from the backend, `atsScore: 82` and `technicalAccuracy: 84` remain hardcoded because the backend has no aggregate stats endpoint.
-   * [`frontend/src/pages/DashboardPage.jsx:51-55`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L51-L55): Mock session list (`displaySessions`) shown if no sessions exist.
-   * [`frontend/src/pages/DashboardPage.jsx:164-171`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L164-L171): SVG weekly performance trend line is completely static/hardcoded.
-   * [`frontend/src/pages/DashboardPage.jsx:185-188`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/DashboardPage.jsx#L185-L188): Skill improvement bars (Technical logic 85%, Communication 78%, Confidence 90%, Answer structure 72%) are static arrays.
+1. **Dashboard Dynamic Stats & Aggregation:** **RESOLVED**
+   * Implemented `GET /api/v1/interview/stats` in Spring Boot returning `DashboardStatsResponse`.
+   * Real ATS Score and Technical Score cards dynamically populated from backend (`nullSafeAverage`).
+   * SVG weekly performance trend line rendered dynamically via cubic Bezier curves (`generateSmoothPath`) based on real session completion history.
+   * Skill breakdown bars display live averages for Technical, Communication, Confidence, and Speaking Pace.
+   * Graceful empty states and "Sample" fallback badges maintained for zero-session candidate profiles.
 
-2. **Resume Analyzer PDF Scaffold:**
-   * [`frontend/src/pages/ResumeAnalyzerPage.jsx:183-205`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/frontend/src/pages/ResumeAnalyzerPage.jsx#L183-L205): The document preview is a static CSS skeleton placeholder rather than rendering the uploaded PDF.
+2. **Resume Analyzer PDF Viewer & Highlight Overlay:** **RESOLVED**
+   * Replaced static scaffold with `<PdfHighlightViewer>` component utilizing `react-pdf` and `pdf.worker.min.mjs`.
+   * Displays actual uploaded PDF with coordinate-mapped visual bounding boxes for matched keywords, missing keywords, strengths, and suggestions.
 
 3. **Backend Application Properties Configuration:**
-   * [`backend/src/main/resources/application.properties:25`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/backend/src/main/resources/application.properties#L25): `ai.service.url=http://localhost:8000` is hardcoded without environment variable fallback (`${AI_SERVICE_URL:http://localhost:8000}`).
+   * [`backend/src/main/resources/application.properties:25`](file:///d:/AI%20Resume%20Screening%20and%20Mock%20Interview%20System/backend/src/main/resources/application.properties#L25): Configured with environment variable substitutions (`${AI_SERVICE_URL:http://localhost:8000}`).
 
 ### 4.3 Documentation Mismatches
 

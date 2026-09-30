@@ -71,6 +71,16 @@ public class ResumeService {
         String resumeText = null;
         boolean isPdf = "application/pdf".equals(file.getContentType()) || (filename != null && filename.toLowerCase().endsWith(".pdf"));
 
+        // Capture raw PDF bytes for persistence
+        byte[] pdfBytes = null;
+        if (isPdf) {
+            try {
+                pdfBytes = file.getBytes();
+            } catch (java.io.IOException e) {
+                throw new BadRequestException("Failed to read uploaded PDF file.");
+            }
+        }
+
         if (!isPdf) {
             try {
                 resumeText = tika.parseToString(file.getInputStream());
@@ -109,13 +119,16 @@ public class ResumeService {
             throw new BadRequestException("AI analysis failed: " + e.getMessage());
         }
 
-        // 4. Construct Feedback JSON
+        // 4. Construct Feedback JSON (includes highlights for persistence)
         Map<String, Object> feedbackMap = new HashMap<>();
         feedbackMap.put("missingKeywords", aiResponse.getMissingKeywords());
+        feedbackMap.put("matchedKeywords", aiResponse.getMatchedKeywords());
         feedbackMap.put("strengths", aiResponse.getStrengths());
         feedbackMap.put("weaknesses", aiResponse.getWeaknesses());
         feedbackMap.put("suggestions", aiResponse.getSuggestions());
         feedbackMap.put("generatedQuestions", aiResponse.getGeneratedQuestions());
+        feedbackMap.put("highlights", aiResponse.getHighlights());
+        feedbackMap.put("pageDimensions", aiResponse.getPageDimensions());
 
         String feedbackJson;
         try {
@@ -128,7 +141,9 @@ public class ResumeService {
         Resume resume = resumeRepository.findByUserId(user.getId())
                 .orElse(Resume.builder().user(user).build());
 
-        if (resumeText != null) {
+        if (aiResponse.getResumeText() != null && !aiResponse.getResumeText().isBlank()) {
+            resume.setRawText(aiResponse.getResumeText());
+        } else if (resumeText != null) {
             resume.setRawText(resumeText);
         } else {
             resume.setRawText("PDF Extracted remotely by AI service.");
@@ -137,6 +152,11 @@ public class ResumeService {
         resume.setFeedbackJson(feedbackJson);
         resume.setUpdatedAt(LocalDateTime.now());
 
+        // Persist original PDF bytes
+        if (pdfBytes != null && pdfBytes.length > 0) {
+            resume.setPdfData(pdfBytes);
+        }
+
         resumeRepository.save(resume);
 
         // 6. Map to DTO
@@ -144,10 +164,15 @@ public class ResumeService {
                 .resumeId(resume.getId())
                 .atsScore(resume.getAtsScore())
                 .missingKeywords(aiResponse.getMissingKeywords())
+                .matchedKeywords(aiResponse.getMatchedKeywords())
+                .resumeText(resume.getRawText())
                 .strengths(aiResponse.getStrengths())
                 .weaknesses(aiResponse.getWeaknesses())
                 .suggestions(aiResponse.getSuggestions())
                 .generatedQuestions(aiResponse.getGeneratedQuestions())
+                .highlights(aiResponse.getHighlights())
+                .pageDimensions(aiResponse.getPageDimensions())
+                .hasPdf(pdfBytes != null && pdfBytes.length > 0)
                 .build();
     }
 
@@ -174,15 +199,36 @@ public class ResumeService {
                 .resumeId(resume.getId())
                 .atsScore(resume.getAtsScore())
                 .missingKeywords((List<String>) feedbackMap.get("missingKeywords"))
+                .matchedKeywords((List<String>) feedbackMap.get("matchedKeywords"))
+                .resumeText(resume.getRawText())
                 .strengths((List<String>) feedbackMap.get("strengths"))
                 .weaknesses((List<String>) feedbackMap.get("weaknesses"))
                 .suggestions((List<String>) feedbackMap.get("suggestions"))
                 .generatedQuestions((List<String>) feedbackMap.get("generatedQuestions"))
+                .highlights((List<Map<String, Object>>) feedbackMap.get("highlights"))
+                .pageDimensions((List<Map<String, Object>>) feedbackMap.get("pageDimensions"))
+                .hasPdf(resume.getPdfData() != null && resume.getPdfData().length > 0)
                 .build();
     }
 
-    // Helper classes for AI service communication
+    /**
+     * Retrieve the stored PDF bytes for the authenticated user's resume.
+     * Returns null if no resume or no PDF is stored.
+     */
+    @Transactional(readOnly = true)
+    public byte[] getResumeFile(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userEmail));
 
+        Optional<Resume> resumeOpt = resumeRepository.findByUserId(user.getId());
+        if (resumeOpt.isEmpty()) {
+            return null;
+        }
+
+        return resumeOpt.get().getPdfData();
+    }
+
+    // Helper classes for AI service communication
 
     @Data
     @NoArgsConstructor
@@ -194,11 +240,23 @@ public class ResumeService {
         @JsonProperty("missing_keywords")
         private List<String> missingKeywords;
 
+        @JsonProperty("matched_keywords")
+        private List<String> matchedKeywords;
+
+        @JsonProperty("resume_text")
+        private String resumeText;
+
         private List<String> strengths;
         private List<String> weaknesses;
         private List<String> suggestions;
 
         @JsonProperty("generated_questions")
         private List<String> generatedQuestions;
+
+        @JsonProperty("highlights")
+        private List<Map<String, Object>> highlights;
+
+        @JsonProperty("page_dimensions")
+        private List<Map<String, Object>> pageDimensions;
     }
 }

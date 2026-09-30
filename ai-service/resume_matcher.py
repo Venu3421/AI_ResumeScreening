@@ -293,6 +293,11 @@ def compute_semantic_similarity(
         f"and {len(resume_chunks)} resume chunk(s)."
     )
 
+    if embedding_model is None:
+        logger.warning("embedding_model is None in compute_semantic_similarity; loading on demand...")
+        from sentence_transformers import SentenceTransformer
+        embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
     # Encode — convert_to_numpy=True is more efficient for sklearn
     jd_embeddings = embedding_model.encode(jd_chunks, convert_to_numpy=True)
     resume_embeddings = embedding_model.encode(resume_chunks, convert_to_numpy=True)
