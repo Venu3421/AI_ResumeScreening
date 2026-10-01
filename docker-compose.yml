@@ -1,0 +1,117 @@
+# ==============================================================================
+# InterviewIQ AI - Production & Local Orchestration Docker Compose
+# ==============================================================================
+services:
+  # ----------------------------------------------------------------------------
+  # 1. PostgreSQL Relational Database
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: interviewiq-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-interview_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-interview_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - interviewiq-network
+
+  # ----------------------------------------------------------------------------
+  # 2. FastAPI AI Orchestration Microservice
+  # ----------------------------------------------------------------------------
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: interviewiq-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:5173,http://127.0.0.1:3000,http://frontend:80,http://backend:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - interviewiq-network
+
+  # ----------------------------------------------------------------------------
+  # 3. Spring Boot Backend Application Server
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: interviewiq-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-interview_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AI_SERVICE_URL: http://ai-service:8000
+      JWT_SECRET: ${JWT_SECRET:-InterviewIQ_AI_2024_Super_Secure_JWT_Secret_Key_64_Characters_Long_!!}
+      JWT_EXPIRATION: 86400000
+      CORS_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:80,http://127.0.0.1:5173,http://127.0.0.1:3000"
+      SHOW_SQL: "false"
+      APP_LOG_LEVEL: "INFO"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/v1/auth/login || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - interviewiq-network
+
+  # ----------------------------------------------------------------------------
+  # 4. React Frontend Client (Nginx)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    container_name: interviewiq-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "3000:80"
+    networks:
+      - interviewiq-network
+
+# ==============================================================================
+# Volumes & Networks
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  interviewiq-network:
+    driver: bridge

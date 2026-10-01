@@ -103,3 +103,10 @@ scratch/
 **/scratch/
 list_models.py
 test_gen.py
+
+# =====================================================================
+# Standalone Diagrams, HTML Presentations & Prototype Mockups
+# =====================================================================
+uml_diagram_images/
+UI/
+docs/
