@@ -12,9 +12,12 @@ RUN npm ci
 # Copy application source code
 COPY . .
 
-# Build argument for API URL at build time (defaults to / if proxied or http://localhost:8080)
+# Build argument for API URL and Google OAuth Client ID at build time
 ARG VITE_API_BASE_URL=http://localhost:8080
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+ARG VITE_GOOGLE_CLIENT_ID=878245794947-aidf981hqs97v7j5emsnrrdoos5lmk7e.apps.googleusercontent.com
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 
 # Compile optimized production bundle
 RUN npm run build

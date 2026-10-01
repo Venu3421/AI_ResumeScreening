@@ -9,7 +9,7 @@ import ResumeAnalyzerPage from './pages/ResumeAnalyzerPage';
 import InterviewArenaPage from './pages/InterviewArenaPage';
 import HistoryPage from './pages/HistoryPage';
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '878245794947-aidf981hqs97v7j5emsnrrdoos5lmk7e.apps.googleusercontent.com';
 
 function App() {
   return (

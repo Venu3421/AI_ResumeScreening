@@ -32,16 +32,25 @@ export default function LoginPage() {
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      setError('No credential returned from Google. Please try again.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
       await googleLogin(credentialResponse.credential);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Google Login failed.');
+      console.error('Google login failed:', err);
+      setError(err.response?.data?.message || 'Google Login failed. Please try again or use email login.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google Sign-In was cancelled or failed to initialize. Please try again or use email login.');
   };
 
   const metrics = [
@@ -80,7 +89,7 @@ export default function LoginPage() {
             <div className="flex justify-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
-                onError={() => setError('Google Authentication failed.')}
+                onError={handleGoogleError}
                 theme="outline"
                 size="large"
                 text="signin_with"

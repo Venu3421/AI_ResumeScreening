@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
 function RegisterField({ id, label, type, placeholder, value, onChange, icon }) {
@@ -30,8 +31,30 @@ export default function RegisterPage() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      setError('No credential returned from Google. Please try again.');
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      await googleLogin(credentialResponse.credential);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Google register error:', err);
+      setError(err.response?.data?.message || 'Google registration failed. Please try again or create an account with email.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google Sign-Up was cancelled or failed to initialize. Please check your popup settings or use email.');
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -119,6 +142,24 @@ export default function RegisterPage() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="flex justify-center rounded-2xl border border-slate-200 bg-white px-3 py-3">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                theme="outline"
+                size="large"
+                text="signup_with"
+                shape="rectangular"
+                width="320px"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 py-1">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">or sign up with email</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
             <RegisterField id="reg-name" label="Full name" type="text" placeholder="John Doe" value={name} onChange={(event) => setName(event.target.value)} icon="person" />
             <RegisterField id="reg-email" label="Email address" type="email" placeholder="alex@company.com" value={email} onChange={(event) => setEmail(event.target.value)} icon="mail" />
             <RegisterField id="reg-pass" label="Password" type="password" placeholder="Minimum 6 characters" value={pass} onChange={(event) => setPass(event.target.value)} icon="lock" />

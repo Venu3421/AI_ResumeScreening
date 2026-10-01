@@ -9,15 +9,19 @@ import com.project.system.dto.*;
 import com.project.system.entity.User;
 import com.project.system.exception.BadRequestException;
 import com.project.system.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -86,26 +90,49 @@ public class AuthService {
 
     public AuthResponse googleLogin(GoogleLoginRequest request) {
         try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+            GoogleIdTokenVerifier.Builder verifierBuilder = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(),
-                    GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
+                    GsonFactory.getDefaultInstance());
 
+            // Check if valid client ID(s) are configured (ignore default/empty placeholders)
+            if (googleClientId != null && !googleClientId.isBlank() && !googleClientId.contains("your-google-client-id")) {
+                List<String> audiences = Arrays.stream(googleClientId.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank())
+                        .toList();
+                if (!audiences.isEmpty()) {
+                    verifierBuilder.setAudience(audiences);
+                }
+            }
+
+            GoogleIdTokenVerifier verifier = verifierBuilder.build();
             GoogleIdToken idToken = verifier.verify(request.getCredential());
             if (idToken == null) {
+                log.warn("Google ID token verification returned null. Configured client ID: {}", googleClientId);
                 throw new BadRequestException("Invalid Google ID Token.");
             }
 
             GoogleIdToken.Payload payload = idToken.getPayload();
             String email = payload.getEmail();
-            String name = (String) payload.get("name");
+            if (email == null || email.isBlank()) {
+                throw new BadRequestException("Google ID Token missing email address.");
+            }
 
+            String name = (String) payload.get("name");
+            if (name == null || name.isBlank()) {
+                name = (String) payload.get("given_name");
+            }
+            if (name == null || name.isBlank()) {
+                name = email.contains("@") ? email.substring(0, email.indexOf('@')) : "Google User";
+            }
+
+            final String candidateName = name;
             User user = userRepository.findByEmail(email)
                     .orElseGet(() -> {
-                        // Register Google user automatically with random password
+                        // Register Google user automatically with secure random password
+                        log.info("Auto-provisioning new account for Google user: {}", email);
                         User newUser = User.builder()
-                                .name(name)
+                                .name(candidateName)
                                 .email(email)
                                 .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                                 .build();
@@ -129,6 +156,7 @@ public class AuthService {
                     .build();
 
         } catch (GeneralSecurityException | IOException e) {
+            log.error("Google ID Token verification failed: {}", e.getMessage(), e);
             throw new BadRequestException("Google ID Token verification failed: " + e.getMessage());
         }
     }
