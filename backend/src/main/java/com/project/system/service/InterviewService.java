@@ -80,7 +80,7 @@ public class InterviewService {
     }
 
     private <T> T postToAiServiceWithRetry(String endpoint, HttpEntity<?> requestEntity, Class<T> responseType, String actionDescription) {
-        int maxAttempts = 3;
+        int maxAttempts = 8;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 T response = restTemplate.postForObject(endpoint, requestEntity, responseType);

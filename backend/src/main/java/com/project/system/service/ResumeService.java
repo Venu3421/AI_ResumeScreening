@@ -123,7 +123,7 @@ public class ResumeService {
         HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
         AiResumeAnalysisResponse aiResponse = null;
-        int maxAttempts = 3;
+        int maxAttempts = 8;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiResumeAnalysisResponse.class);

@@ -25,9 +25,9 @@ RUN python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('p
 # Copy application source code
 COPY . .
 
-# Default service port
-ENV PORT=8000
-EXPOSE 8000
+# Default service port (Render standard is 10000)
+ENV PORT=10000
+EXPOSE 10000
 
-# Run uvicorn bound to dynamic cloud PORT (defaults to 8000)
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run uvicorn bound to dynamic cloud PORT (defaults to 10000)
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]

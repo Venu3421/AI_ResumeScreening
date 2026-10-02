@@ -58,24 +58,58 @@ def get_embedding_model():
         logger.info("SentenceTransformer loaded successfully.")
     return embedding_model
 
+def get_gemini_client():
+    """Retrieve or lazily initialize the Gemini client."""
+    global gemini_client
+    if gemini_client is None:
+        key = os.getenv("GEMINI_API_KEY")
+        if key:
+            gemini_client = genai.Client(api_key=key.strip())
+    if gemini_client is None:
+        raise HTTPException(
+            status_code=500,
+            detail="GEMINI_API_KEY environment variable is not configured on the AI microservice. Please set it in Render dashboard.",
+        )
+    return gemini_client
+
+def get_groq_client():
+    """Retrieve or lazily initialize the Groq client."""
+    global groq_client
+    if groq_client is None:
+        key = os.getenv("GROQ_API_KEY")
+        if key:
+            groq_client = Groq(api_key=key.strip())
+    if groq_client is None:
+        raise HTTPException(
+            status_code=500,
+            detail="GROQ_API_KEY environment variable is not configured on the AI microservice. Please set it in Render dashboard.",
+        )
+    return groq_client
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize Gemini and Groq clients on startup without blocking on heavy ML models."""
     global gemini_client, groq_client
 
     gemini_api_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_api_key:
-        logger.error("GEMINI_API_KEY environment variable is not set.")
-        raise RuntimeError("GEMINI_API_KEY is required.")
-    gemini_client = genai.Client(api_key=gemini_api_key)
-    logger.info("Gemini AI client initialized successfully.")
+    if gemini_api_key:
+        try:
+            gemini_client = genai.Client(api_key=gemini_api_key.strip())
+            logger.info("Gemini AI client initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini AI client: {e}")
+    else:
+        logger.warning("GEMINI_API_KEY environment variable is not set. Requests requiring Gemini will return 500.")
 
     groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        logger.error("GROQ_API_KEY environment variable is not set.")
-        raise RuntimeError("GROQ_API_KEY is required.")
-    groq_client = Groq(api_key=groq_api_key)
-    logger.info("Groq AI client initialized successfully.")
+    if groq_api_key:
+        try:
+            groq_client = Groq(api_key=groq_api_key.strip())
+            logger.info("Groq AI client initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Groq AI client: {e}")
+    else:
+        logger.warning("GROQ_API_KEY environment variable is not set. Requests requiring Groq will return 500.")
 
     yield
     logger.info("AI Microservice shutting down.")
@@ -108,7 +142,13 @@ app.add_middleware(
 @app.get("/health", tags=["System"])
 async def health_check():
     """Health check endpoint to verify the microservice is running."""
-    return {"status": "healthy", "service": "InterviewIQ AI Microservice", "version": app.version}
+    return {
+        "status": "healthy",
+        "service": "InterviewIQ AI Microservice",
+        "version": app.version,
+        "gemini_configured": gemini_client is not None,
+        "groq_configured": groq_client is not None,
+    }
 
 
 # ==================== Resume Analysis Endpoint ====================
