@@ -34,6 +34,9 @@ export default function Navbar() {
   const micStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const animFrameRef = useRef(null);
+  const meterBarRef = useRef(null);
+  const meterTextRef = useRef(null);
+  const meterStatusRef = useRef(null);
 
   const navRef = useRef(null);
 
@@ -55,37 +58,101 @@ export default function Navbar() {
     setMicLevel(0);
   };
 
-  // Start real live mic test
+  // Start real live mic test with accurate time-domain RMS and bypass AGC
   const startMicTest = async () => {
     try {
       stopMicTest();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let stream;
+      try {
+        // Request without AGC/noiseSuppression to prevent OS/browser from ducking loud close-mic input
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       micStreamRef.current = stream;
 
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
 
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.5;
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.2;
 
       const source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const pcmData = new Float32Array(analyser.fftSize);
       setMicTesting(true);
+
+      let smoothedLevel = 0;
 
       const loop = () => {
         if (!micStreamRef.current) return;
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
+        analyser.getFloatTimeDomainData(pcmData);
+
+        // Root Mean Square (RMS) calculation of acoustic waveform
+        let sumSquares = 0;
+        for (let i = 0; i < pcmData.length; i++) {
+          sumSquares += pcmData[i] * pcmData[i];
         }
-        const avg = sum / dataArray.length;
-        const normalized = Math.min(100, Math.round((avg / 128) * 100));
-        setMicLevel(normalized);
+        const rms = Math.sqrt(sumSquares / pcmData.length);
+
+        // Perceptual sensitivity curve:
+        // Ambient: rms ~ 0.002 - 0.01 -> 0% - 8%
+        // Normal speech: rms ~ 0.06 - 0.18 -> 35% - 65%
+        // Close to mic / loud: rms ~ 0.25 - 0.70+ -> 80% - 100%
+        const amplified = Math.min(1.0, rms * 4.2);
+        const targetLevel = Math.round(Math.pow(amplified, 0.72) * 100);
+
+        // Fast attack (instant rise), smooth decay (comfortable release)
+        if (targetLevel > smoothedLevel) {
+          smoothedLevel = targetLevel;
+        } else {
+          smoothedLevel = Math.max(0, smoothedLevel * 0.88 + targetLevel * 0.12);
+        }
+
+        const displayLevel = Math.min(100, Math.max(0, Math.round(smoothedLevel)));
+
+        // Direct DOM update for 60fps performance without re-rendering entire Navbar
+        if (meterBarRef.current) {
+          meterBarRef.current.style.width = `${Math.max(4, displayLevel)}%`;
+          if (displayLevel >= 75) {
+            meterBarRef.current.className =
+              'h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-all duration-75 rounded-full';
+          } else if (displayLevel >= 25) {
+            meterBarRef.current.className =
+              'h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-75 rounded-full';
+          } else {
+            meterBarRef.current.className =
+              'h-full bg-emerald-500 transition-all duration-75 rounded-full';
+          }
+        }
+        if (meterTextRef.current) {
+          meterTextRef.current.textContent = `${displayLevel}%`;
+        }
+        if (meterStatusRef.current) {
+          if (displayLevel >= 75) {
+            meterStatusRef.current.textContent = 'High signal / close to mic — excellent pickup!';
+            meterStatusRef.current.className = 'text-[10px] text-amber-700 font-bold';
+          } else if (displayLevel >= 20) {
+            meterStatusRef.current.textContent = 'Clear speech detected — optimal volume!';
+            meterStatusRef.current.className = 'text-[10px] text-emerald-700 font-semibold';
+          } else {
+            meterStatusRef.current.textContent = 'Listening... speak towards your microphone.';
+            meterStatusRef.current.className = 'text-[10px] text-slate-500 font-medium';
+          }
+        }
+
         animFrameRef.current = requestAnimationFrame(loop);
       };
       loop();
@@ -576,20 +643,31 @@ export default function Navbar() {
                     </div>
 
                     {micTesting ? (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                          <span>Live Signal:</span>
-                          <span className="text-emerald-700">{micLevel}%</span>
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                            Live Input Level:
+                          </span>
+                          <span ref={meterTextRef} className="font-mono text-emerald-700 font-extrabold text-xs">
+                            {micLevel}%
+                          </span>
                         </div>
-                        <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div className="relative h-2.5 w-full bg-slate-200/90 rounded-full overflow-hidden shadow-inner">
                           <div
-                            className="h-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-75"
-                            style={{ width: `${Math.max(5, micLevel)}%` }}
+                            ref={meterBarRef}
+                            className="h-full bg-emerald-500 transition-all duration-75 rounded-full"
+                            style={{ width: `${Math.max(4, micLevel)}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-emerald-700 font-semibold">
-                          Speak to test volume input. Working properly!
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p ref={meterStatusRef} className="text-[10px] text-slate-500 font-medium">
+                            Listening... speak towards your microphone.
+                          </p>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                            0 dBFS
+                          </span>
+                        </div>
                       </div>
                     ) : (
                       <p className="text-[11px] text-slate-500">
