@@ -573,12 +573,22 @@ def _compute_prosody_safe(audio_bytes: bytes):
                     long_pauses += 1
                 silence_frames = 0
 
-                # FFT autocorrelation for fundamental frequency (F0)
-                r = np.fft.rfft(frame, n=frame_len * 2)
+                # Windowed FFT autocorrelation for fundamental frequency (F0)
+                win = frame * np.hanning(len(frame))
+                r = np.fft.rfft(win, n=frame_len * 2)
                 corr = np.fft.irfft(r * np.conj(r))
                 corr_slice = corr[min_lag:max_lag]
-                if len(corr_slice) > 0 and np.max(corr_slice) > 0:
-                    best_lag = min_lag + np.argmax(corr_slice)
+                if len(corr_slice) > 2 and np.max(corr_slice) > 0:
+                    peak_idx = int(np.argmax(corr_slice))
+                    best_lag = float(min_lag + peak_idx)
+                    # Sub-sample parabolic interpolation around peak
+                    if 0 < peak_idx < len(corr_slice) - 1:
+                        alpha = corr_slice[peak_idx - 1]
+                        beta = corr_slice[peak_idx]
+                        gamma = corr_slice[peak_idx + 1]
+                        denom = alpha - 2 * beta + gamma
+                        if denom != 0:
+                            best_lag += 0.5 * (alpha - gamma) / denom
                     if best_lag > 0:
                         pitches.append(sr / best_lag)
 
