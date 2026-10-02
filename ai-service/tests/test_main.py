@@ -559,6 +559,15 @@ def test_load_audio_array_invalid_bytes_raises_value_error():
         load_audio_array(b"random non-audio bytes 12345")
 
 
+def test_compute_prosody_safe_graceful_fallback():
+    """Verify _compute_prosody_safe returns None instead of raising an exception on bad audio."""
+    from main import _compute_prosody_safe
+
+    res = _compute_prosody_safe(b"invalid data")
+    assert res is None
+
+
+
 
 
 

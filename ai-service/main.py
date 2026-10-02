@@ -523,6 +523,85 @@ def load_audio_array(audio_bytes: bytes):
     raise ValueError("Could not decode audio into PCM format using soundfile or ffmpeg.")
 
 
+def _compute_prosody_safe(audio_bytes: bytes):
+    """
+    Synchronous prosody analysis running in a separate threadpool worker.
+    Extracts vocal metrics using librosa.pyin and acoustic features.
+    Returns composite score (0-100) or None if processing fails.
+    """
+    try:
+        import librosa
+        import numpy as np
+
+        logger.info("Starting prosody analysis via librosa.")
+        y, sr = load_audio_array(audio_bytes)
+
+        if not np.isfinite(y).all():
+            y = np.nan_to_num(y)
+
+        if len(y) < sr * 0.5:
+            logger.info("Audio duration too short for prosody analysis (<0.5s).")
+            return None
+
+        # 1. Pitch variance (optimized librosa.pyin)
+        # Sliced to max 15 seconds to minimize CPU and RAM
+        y_pitch_slice = y[:int(sr * 15)]
+        sr_pitch = 11025
+        if sr != sr_pitch:
+            y_pitch = librosa.resample(y_pitch_slice, orig_sr=sr, target_sr=sr_pitch)
+        else:
+            y_pitch = y_pitch_slice
+
+        f0, voiced_flag, voiced_probs = librosa.pyin(
+            y_pitch,
+            fmin=librosa.note_to_hz('C2'),
+            fmax=400,
+            sr=sr_pitch,
+            hop_length=512
+        )
+        valid_f0 = f0[voiced_flag] if f0 is not None and voiced_flag is not None else []
+        pitch_score = 0
+        if len(valid_f0) > 0:
+            pitch_std = np.std(valid_f0)
+            pitch_score = min(25, int((pitch_std / 50.0) * 25))
+
+        # 2. Pause frequency (librosa.effects.split)
+        non_mute_intervals = librosa.effects.split(y, top_db=30)
+        long_pauses = 0
+        for i in range(1, len(non_mute_intervals)):
+            gap_samples = non_mute_intervals[i][0] - non_mute_intervals[i-1][1]
+            if gap_samples / sr > 0.3:
+                long_pauses += 1
+        
+        pause_score = max(0, 25 - (long_pauses * 5))
+
+        # 3. Speaking rate variability (5s windows)
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        frames_per_5s = int((5.0 * sr) / 512)
+        rate_score = 15
+        if len(onset_env) > frames_per_5s and frames_per_5s > 0:
+            windows = [onset_env[i:i+frames_per_5s] for i in range(0, len(onset_env), frames_per_5s)]
+            rates = [np.sum(w) for w in windows]
+            if np.mean(rates) > 0:
+                cv = np.std(rates) / np.mean(rates)
+                rate_score = max(0, min(25, int(25 - (cv * 50))))
+
+        # 4. Energy consistency (RMS energy variance)
+        rms = librosa.feature.rms(y=y)[0]
+        energy_score = 15
+        if np.mean(rms) > 0:
+            rms_cv = np.std(rms) / np.mean(rms)
+            energy_score = max(0, min(25, int(25 - (rms_cv * 25))))
+
+        score = pitch_score + pause_score + rate_score + energy_score
+        logger.info(f"Prosody confidence score: {score} (pitch={pitch_score}, pause={pause_score}, rate={rate_score}, energy={energy_score})")
+        return score
+
+    except Exception as e:
+        logger.warning(f"Librosa prosody analysis failed: {e}")
+        return None
+
+
 # ==================== Interview Answer Evaluation Endpoint ====================
 
 @app.post("/api/v1/ai/evaluate-answer", response_model=InterviewEvaluationResponse, tags=["Interview Evaluation"])
@@ -638,82 +717,24 @@ async def evaluate_answer(
     else:
         logger.info(f"Speaking pace: insufficient data (words={word_count}, duration={audio_duration_sec}). Setting to null.")
 
-    # ---- Step B2: Vocal Prosody Analysis (librosa) ----
+    # ---- Step B2: Vocal Prosody Analysis (Optional / Configurable) ----
     prosody_confidence_score = None
-    try:
-        import librosa
-        import numpy as np
+    enable_librosa = os.getenv("ENABLE_LIBROSA_PROSODY", "false").lower() in ("true", "1", "yes")
 
-        logger.info("Starting prosody analysis via librosa.")
-        y, sr = load_audio_array(audio_bytes)
-
-        if not np.isfinite(y).all():
-            y = np.nan_to_num(y)
-
-        if len(y) < sr * 0.5:
-            logger.info("Audio duration too short for prosody analysis (<0.5s).")
-        else:
-            # 1. Pitch variance (optimized librosa.pyin)
-            # Focus on a representative slice (up to 20s) and resample to 11025 Hz.
-            # Human speech F0 lies strictly between C2 (~65 Hz) and 400 Hz (avoids soprano C7 2093 Hz).
-            # This accelerates pyin from ~45-60s down to ~1.2s while preserving full vocal nuance.
-            y_pitch_slice = y[:int(sr * 20)]
-            sr_pitch = 11025
-            if sr != sr_pitch:
-                y_pitch = librosa.resample(y_pitch_slice, orig_sr=sr, target_sr=sr_pitch)
-            else:
-                y_pitch = y_pitch_slice
-
-            f0, voiced_flag, voiced_probs = librosa.pyin(
-                y_pitch,
-                fmin=librosa.note_to_hz('C2'),
-                fmax=400,
-                sr=sr_pitch,
-                hop_length=512
+    if not enable_librosa:
+        logger.info("Prosody analysis via librosa is disabled (ENABLE_LIBROSA_PROSODY=false) to conserve memory on cloud tier (512MB RAM). Using Groq LLM confidence.")
+    else:
+        try:
+            prosody_confidence_score = await asyncio.wait_for(
+                asyncio.to_thread(_compute_prosody_safe, audio_bytes),
+                timeout=3.0
             )
-            valid_f0 = f0[voiced_flag] if f0 is not None and voiced_flag is not None else []
-            pitch_score = 0
-            if len(valid_f0) > 0:
-                pitch_std = np.std(valid_f0)
-                pitch_score = min(25, int((pitch_std / 50.0) * 25))
-
-            # 2. Pause frequency (librosa.effects.split)
-            # Count silence gaps longer than 0.3s. Many long pauses (0pts), few (25pts).
-            non_mute_intervals = librosa.effects.split(y, top_db=30)
-            long_pauses = 0
-            for i in range(1, len(non_mute_intervals)):
-                gap_samples = non_mute_intervals[i][0] - non_mute_intervals[i-1][1]
-                if gap_samples / sr > 0.3:
-                    long_pauses += 1
-            
-            pause_score = max(0, 25 - (long_pauses * 5))
-
-            # 3. Speaking rate variability (5s windows)
-            # Rate variance proxy using onset strength. Erratic (0pts), steady (25pts).
-            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-            frames_per_5s = int((5.0 * sr) / 512)
-            rate_score = 15 # default
-            if len(onset_env) > frames_per_5s and frames_per_5s > 0:
-                windows = [onset_env[i:i+frames_per_5s] for i in range(0, len(onset_env), frames_per_5s)]
-                rates = [np.sum(w) for w in windows]
-                if np.mean(rates) > 0:
-                    cv = np.std(rates) / np.mean(rates)
-                    rate_score = max(0, min(25, int(25 - (cv * 50))))
-
-            # 4. Energy consistency (RMS energy variance)
-            # Very high variance = unsteady delivery.
-            rms = librosa.feature.rms(y=y)[0]
-            energy_score = 15 # default
-            if np.mean(rms) > 0:
-                rms_cv = np.std(rms) / np.mean(rms)
-                energy_score = max(0, min(25, int(25 - (rms_cv * 25))))
-
-            prosody_confidence_score = pitch_score + pause_score + rate_score + energy_score
-            logger.info(f"Prosody confidence score: {prosody_confidence_score} (pitch={pitch_score}, pause={pause_score}, rate={rate_score}, energy={energy_score})")
-
-    except Exception as e:
-        logger.warning(f"Librosa prosody analysis failed: {e}")
-        prosody_confidence_score = None
+        except asyncio.TimeoutError:
+            logger.warning("Librosa prosody analysis timed out after 3.0s — skipping to protect response latency.")
+            prosody_confidence_score = None
+        except Exception as e:
+            logger.warning(f"Librosa prosody analysis execution failed: {e}")
+            prosody_confidence_score = None
 
     # ---- Step C: Groq Reasoning (text-only) ----
     try:
