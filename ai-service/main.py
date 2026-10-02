@@ -525,80 +525,95 @@ def load_audio_array(audio_bytes: bytes):
 
 def _compute_prosody_safe(audio_bytes: bytes):
     """
-    Synchronous prosody analysis running in a separate threadpool worker.
-    Extracts vocal metrics using librosa.pyin and acoustic features.
-    Returns composite score (0-100) or None if processing fails.
+    High-performance, memory-efficient vocal prosody analyzer.
+    Analyzes candidate's actual voice recording without heavy Numba JIT compilation
+    or OOM memory spikes. Computes 4 acoustic dimensions:
+      1. Pitch intonation variance (F0 between 65-400 Hz via FFT autocorrelation)
+      2. Pause/hesitation frequency (silence intervals > 300ms)
+      3. Speaking rhythm / rate variability across sliding windows
+      4. Vocal energy / volume consistency (RMS projection)
+    Returns composite score (0-100) or None if audio is invalid/too short.
     """
     try:
-        import librosa
         import numpy as np
 
-        logger.info("Starting prosody analysis via librosa.")
+        logger.info("Starting vocal prosody analysis on audio waveform.")
         y, sr = load_audio_array(audio_bytes)
-
-        if not np.isfinite(y).all():
-            y = np.nan_to_num(y)
 
         if len(y) < sr * 0.5:
             logger.info("Audio duration too short for prosody analysis (<0.5s).")
             return None
 
-        # 1. Pitch variance (optimized librosa.pyin)
-        # Sliced to max 15 seconds to minimize CPU and RAM
-        y_pitch_slice = y[:int(sr * 15)]
-        sr_pitch = 11025
-        if sr != sr_pitch:
-            y_pitch = librosa.resample(y_pitch_slice, orig_sr=sr, target_sr=sr_pitch)
-        else:
-            y_pitch = y_pitch_slice
+        # Analyze up to 15 seconds of candidate audio for fast, accurate results
+        y = y[:int(sr * 15)]
+        if not np.isfinite(y).all():
+            y = np.nan_to_num(y)
 
-        f0, voiced_flag, voiced_probs = librosa.pyin(
-            y_pitch,
-            fmin=librosa.note_to_hz('C2'),
-            fmax=400,
-            sr=sr_pitch,
-            hop_length=512
-        )
-        valid_f0 = f0[voiced_flag] if f0 is not None and voiced_flag is not None else []
-        pitch_score = 0
-        if len(valid_f0) > 0:
-            pitch_std = np.std(valid_f0)
+        frame_len = 512
+        hop = 256
+        fmin, fmax = 65, 400
+        min_lag = int(sr / fmax)
+        max_lag = int(sr / fmin)
+
+        pitches = []
+        rms_list = []
+        silence_frames = 0
+        long_pauses = 0
+        silence_thresh = 0.015
+
+        for i in range(0, len(y) - frame_len, hop):
+            frame = y[i:i + frame_len]
+            rms = float(np.sqrt(np.mean(frame**2)))
+            rms_list.append(rms)
+
+            if rms < silence_thresh:
+                silence_frames += 1
+            else:
+                if silence_frames * (hop / sr) > 0.3:
+                    long_pauses += 1
+                silence_frames = 0
+
+                # FFT autocorrelation for fundamental frequency (F0)
+                r = np.fft.rfft(frame, n=frame_len * 2)
+                corr = np.fft.irfft(r * np.conj(r))
+                corr_slice = corr[min_lag:max_lag]
+                if len(corr_slice) > 0 and np.max(corr_slice) > 0:
+                    best_lag = min_lag + np.argmax(corr_slice)
+                    if best_lag > 0:
+                        pitches.append(sr / best_lag)
+
+        # 1. Pitch score (0-25): intonation variance (monotone vs dynamic)
+        pitch_score = 12
+        if len(pitches) > 5:
+            pitch_std = float(np.std(pitches))
             pitch_score = min(25, int((pitch_std / 50.0) * 25))
 
-        # 2. Pause frequency (librosa.effects.split)
-        non_mute_intervals = librosa.effects.split(y, top_db=30)
-        long_pauses = 0
-        for i in range(1, len(non_mute_intervals)):
-            gap_samples = non_mute_intervals[i][0] - non_mute_intervals[i-1][1]
-            if gap_samples / sr > 0.3:
-                long_pauses += 1
-        
+        # 2. Pause score (0-25): penalty for hesitation gaps > 300ms
         pause_score = max(0, 25 - (long_pauses * 5))
 
-        # 3. Speaking rate variability (5s windows)
-        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-        frames_per_5s = int((5.0 * sr) / 512)
+        # 3. Speaking rhythm / rate variability (0-25): pacing consistency
         rate_score = 15
-        if len(onset_env) > frames_per_5s and frames_per_5s > 0:
-            windows = [onset_env[i:i+frames_per_5s] for i in range(0, len(onset_env), frames_per_5s)]
-            rates = [np.sum(w) for w in windows]
-            if np.mean(rates) > 0:
-                cv = np.std(rates) / np.mean(rates)
-                rate_score = max(0, min(25, int(25 - (cv * 50))))
+        if len(rms_list) > 20:
+            window_size = int(sr * 3 / hop)
+            if window_size > 0 and len(rms_list) > window_size:
+                rates = [np.mean(rms_list[j:j+window_size]) for j in range(0, len(rms_list), window_size)]
+                if np.mean(rates) > 0:
+                    cv = float(np.std(rates) / np.mean(rates))
+                    rate_score = max(0, min(25, int(25 - (cv * 25))))
 
-        # 4. Energy consistency (RMS energy variance)
-        rms = librosa.feature.rms(y=y)[0]
+        # 4. Energy consistency (0-25): steady volume projection
         energy_score = 15
-        if np.mean(rms) > 0:
-            rms_cv = np.std(rms) / np.mean(rms)
+        voiced_rms = [r for r in rms_list if r >= silence_thresh]
+        if len(voiced_rms) > 5 and np.mean(voiced_rms) > 0:
+            rms_cv = float(np.std(voiced_rms) / np.mean(voiced_rms))
             energy_score = max(0, min(25, int(25 - (rms_cv * 25))))
 
         score = pitch_score + pause_score + rate_score + energy_score
-        logger.info(f"Prosody confidence score: {score} (pitch={pitch_score}, pause={pause_score}, rate={rate_score}, energy={energy_score})")
+        logger.info(f"Vocal prosody confidence score: {score} (pitch={pitch_score}, pause={pause_score}, rate={rate_score}, energy={energy_score})")
         return score
 
     except Exception as e:
-        logger.warning(f"Librosa prosody analysis failed: {e}")
+        logger.warning(f"Vocal prosody analysis failed: {e}")
         return None
 
 
@@ -717,24 +732,19 @@ async def evaluate_answer(
     else:
         logger.info(f"Speaking pace: insufficient data (words={word_count}, duration={audio_duration_sec}). Setting to null.")
 
-    # ---- Step B2: Vocal Prosody Analysis (Optional / Configurable) ----
+    # ---- Step B2: Vocal Prosody Analysis ----
     prosody_confidence_score = None
-    enable_librosa = os.getenv("ENABLE_LIBROSA_PROSODY", "false").lower() in ("true", "1", "yes")
-
-    if not enable_librosa:
-        logger.info("Prosody analysis via librosa is disabled (ENABLE_LIBROSA_PROSODY=false) to conserve memory on cloud tier (512MB RAM). Using Groq LLM confidence.")
-    else:
-        try:
-            prosody_confidence_score = await asyncio.wait_for(
-                asyncio.to_thread(_compute_prosody_safe, audio_bytes),
-                timeout=3.0
-            )
-        except asyncio.TimeoutError:
-            logger.warning("Librosa prosody analysis timed out after 3.0s — skipping to protect response latency.")
-            prosody_confidence_score = None
-        except Exception as e:
-            logger.warning(f"Librosa prosody analysis execution failed: {e}")
-            prosody_confidence_score = None
+    try:
+        prosody_confidence_score = await asyncio.wait_for(
+            asyncio.to_thread(_compute_prosody_safe, audio_bytes),
+            timeout=3.0
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Vocal prosody analysis timed out after 3.0s — falling back to LLM confidence.")
+        prosody_confidence_score = None
+    except Exception as e:
+        logger.warning(f"Vocal prosody analysis execution failed: {e}")
+        prosody_confidence_score = None
 
     # ---- Step C: Groq Reasoning (text-only) ----
     try:
