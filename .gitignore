@@ -55,9 +55,6 @@ target/
 *.ear
 hs_err_pid*
 replay_pid*
-.mvn/
-mvnw
-mvnw.cmd
 
 # =====================================================================
 # Audio / Media Recordings & Temporary Processing Storage
