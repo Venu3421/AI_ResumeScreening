@@ -13,22 +13,28 @@ import com.project.system.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class ResumeService {
 
@@ -45,8 +51,15 @@ public class ResumeService {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = createRestTemplate();
         this.tika = new Tika();
+    }
+
+    private static RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofSeconds(30).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(120).toMillis());
+        return new RestTemplate(factory);
     }
 
     @Transactional
@@ -109,14 +122,51 @@ public class ResumeService {
 
         HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-        AiResumeAnalysisResponse aiResponse;
-        try {
-            aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiResumeAnalysisResponse.class);
-            if (aiResponse == null) {
-                throw new BadRequestException("AI service returned empty response.");
+        AiResumeAnalysisResponse aiResponse = null;
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiResumeAnalysisResponse.class);
+                if (aiResponse != null) {
+                    break;
+                }
+            } catch (HttpStatusCodeException e) {
+                int status = e.getStatusCode().value();
+                if ((status == 502 || status == 503 || status == 504) && attempt < maxAttempts) {
+                    log.warn("AI service returned HTTP {} on attempt {}/{} (cloud service waking up). Retrying in 6 seconds...",
+                            status, attempt, maxAttempts);
+                    try {
+                        Thread.sleep(6000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new BadRequestException("Request interrupted while waiting for AI service.");
+                    }
+                    continue;
+                }
+                if (status == 502 || status == 503 || status == 504) {
+                    throw new BadRequestException("The AI microservice is currently waking up on the free cloud tier. Please wait 15 seconds and try again.");
+                }
+                throw new BadRequestException("AI analysis failed: " + e.getMessage());
+            } catch (ResourceAccessException e) {
+                if (attempt < maxAttempts) {
+                    log.warn("AI service connection refused or timed out on attempt {}/{} (cloud service waking up): {}. Retrying in 6 seconds...",
+                            attempt, maxAttempts, e.getMessage());
+                    try {
+                        Thread.sleep(6000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new BadRequestException("Request interrupted while waiting for AI service.");
+                    }
+                    continue;
+                }
+                throw new BadRequestException("The AI microservice is currently waking up on the free cloud tier. Please wait 15 seconds and try again.");
+            } catch (org.springframework.web.client.RestClientException e) {
+                throw new BadRequestException("AI analysis failed: " + e.getMessage());
             }
-        } catch (org.springframework.web.client.RestClientException e) {
-            throw new BadRequestException("AI analysis failed: " + e.getMessage());
+        }
+
+        if (aiResponse == null) {
+            throw new BadRequestException("AI service returned empty response.");
         }
 
         // 4. Construct Feedback JSON (includes highlights for persistence)
@@ -226,6 +276,25 @@ public class ResumeService {
         }
 
         return resumeOpt.get().getPdfData();
+    }
+
+    /**
+     * Non-blocking or lightweight ping to wake up the AI service on free cloud tiers.
+     */
+    public Map<String, Object> pingAiService() {
+        try {
+            Map<?, ?> res = restTemplate.getForObject(aiServiceUrl + "/health", Map.class);
+            Map<String, Object> result = new HashMap<>();
+            if (res != null) {
+                res.forEach((k, v) -> result.put(String.valueOf(k), v));
+            }
+            return result;
+        } catch (Exception e) {
+            log.info("AI service ping triggered (status: waking up): {}", e.getMessage());
+            Map<String, Object> fallback = new HashMap<>();
+            fallback.put("status", "waking_up");
+            return fallback;
+        }
     }
 
     // Helper classes for AI service communication

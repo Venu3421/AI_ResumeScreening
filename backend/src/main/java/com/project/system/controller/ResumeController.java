@@ -53,4 +53,12 @@ public class ResumeController {
         headers.setContentDispositionFormData("inline", "resume.pdf");
         return ResponseEntity.ok().headers(headers).body(pdfData);
     }
+
+    /**
+     * Non-blocking background health ping to pre-warm the AI microservice on Render free tier.
+     */
+    @GetMapping("/ping-ai")
+    public ResponseEntity<java.util.Map<String, Object>> pingAi() {
+        return ResponseEntity.ok(resumeService.pingAiService());
+    }
 }

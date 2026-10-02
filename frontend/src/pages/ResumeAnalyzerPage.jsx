@@ -134,6 +134,8 @@ export default function ResumeAnalyzerPage() {
     };
 
     loadSavedResume();
+    // Non-blocking ping to pre-warm the AI microservice on Render free tier
+    api.get('/api/v1/resumes/ping-ai').catch(() => {});
     return () => {
       isMounted = false;
     };
@@ -184,7 +186,12 @@ export default function ResumeAnalyzerPage() {
       setPhase('results');
       window.dispatchEvent(new Event('iq_notification_update'));
     } catch (err) {
-      setError(err.response?.data?.message || 'Analysis failed. Please upload a valid PDF resume.');
+      const errMsg = err.response?.data?.message || err.message || 'Analysis failed. Please upload a valid PDF resume.';
+      if (errMsg.includes('502') || errMsg.includes('waking up') || errMsg.includes('Gateway') || errMsg.includes('cloud tier')) {
+        setError('The AI service was sleeping on the free cloud tier and is now waking up. Please click "Analyze resume" again!');
+      } else {
+        setError(errMsg);
+      }
       setPhase('upload');
     }
   };
@@ -418,8 +425,21 @@ export default function ResumeAnalyzerPage() {
         </section>
 
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {error}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-red-600">error</span>
+              <span>{error}</span>
+            </div>
+            {selectedFile && (
+              <button
+                type="button"
+                onClick={runAnalysis}
+                className="gradient-primary flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md shadow-primary/20 hover:opacity-95 cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                Analyze again
+              </button>
+            )}
           </div>
         )}
 
@@ -507,12 +527,18 @@ export default function ResumeAnalyzerPage() {
         )}
 
         {phase === 'loading' && (
-          <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="h-[600px] rounded-[28px] skeleton" />
-            <div className="space-y-5">
-              <div className="h-44 rounded-[24px] skeleton" />
-              <div className="h-56 rounded-[24px] skeleton" />
-              <div className="h-44 rounded-[24px] skeleton" />
+          <section className="app-card rounded-[28px] p-8 sm:p-12 text-center flex flex-col items-center justify-center min-h-[440px]">
+            <div className="relative mb-6 flex h-20 w-20 items-center justify-center">
+              <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+              <div className="h-14 w-14 animate-spin rounded-full border-4 border-primary border-t-transparent shadow-lg" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-950">Analyzing your resume...</h3>
+            <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
+              Evaluating keywords, semantic alignment, and generating role-specific coaching questions.
+            </p>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-800">
+              <span className="material-symbols-outlined text-[16px] text-amber-600">schedule</span>
+              First request may take 30–45s if free cloud services are waking up
             </div>
           </section>
         )}

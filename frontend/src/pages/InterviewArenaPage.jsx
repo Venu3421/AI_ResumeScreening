@@ -87,6 +87,9 @@ export default function InterviewArenaPage() {
   const [speechPaceEnabled, setSpeechPaceEnabled] = useState(() => localStorage.getItem('iq_speech_pace') !== 'false');
 
   useEffect(() => {
+    // Non-blocking ping to pre-warm the AI microservice on Render free tier
+    api.get('/api/v1/resumes/ping-ai').catch(() => {});
+
     const handleSettingsChange = (e) => {
       if (!e.detail) return;
       const { key, value } = e.detail;

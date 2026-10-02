@@ -17,19 +17,24 @@ import com.project.system.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -39,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class InterviewService {
 
@@ -65,7 +71,59 @@ public class InterviewService {
         this.userRepository = userRepository;
         this.resumeRepository = resumeRepository;
         this.objectMapper = objectMapper;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = createRestTemplate();
+    }
+
+    private static RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofSeconds(30).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(120).toMillis());
+        return new RestTemplate(factory);
+    }
+
+    private <T> T postToAiServiceWithRetry(String endpoint, HttpEntity<?> requestEntity, Class<T> responseType, String actionDescription) {
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                T response = restTemplate.postForObject(endpoint, requestEntity, responseType);
+                if (response != null) {
+                    return response;
+                }
+            } catch (HttpStatusCodeException e) {
+                int status = e.getStatusCode().value();
+                if ((status == 502 || status == 503 || status == 504) && attempt < maxAttempts) {
+                    log.warn("AI service returned HTTP {} during {} on attempt {}/{} (cloud service waking up). Retrying in 6 seconds...",
+                            status, actionDescription, attempt, maxAttempts);
+                    try {
+                        Thread.sleep(6000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new BadRequestException("Request interrupted while waiting for AI service.");
+                    }
+                    continue;
+                }
+                if (status == 502 || status == 503 || status == 504) {
+                    throw new BadRequestException("The AI microservice is currently waking up on the free cloud tier. Please wait 15 seconds and try again.");
+                }
+                throw new BadRequestException(actionDescription + " failed: " + e.getMessage());
+            } catch (ResourceAccessException e) {
+                if (attempt < maxAttempts) {
+                    log.warn("AI service connection failed during {} on attempt {}/{} (cloud service waking up): {}. Retrying in 6 seconds...",
+                            actionDescription, attempt, maxAttempts, e.getMessage());
+                    try {
+                        Thread.sleep(6000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new BadRequestException("Request interrupted while waiting for AI service.");
+                    }
+                    continue;
+                }
+                throw new BadRequestException("The AI microservice is currently waking up on the free cloud tier. Please wait 15 seconds and try again.");
+            } catch (org.springframework.web.client.RestClientException e) {
+                throw new BadRequestException(actionDescription + " failed: " + e.getMessage());
+            }
+        }
+        throw new BadRequestException("AI service returned empty response for " + actionDescription + ".");
     }
 
     // ==================== Backward-Compatibility: Legacy Metrics Translation ====================
@@ -178,18 +236,13 @@ public class InterviewService {
         map.add("job_description", jobDescription);
 
         HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(map, headers);
-        String firstQuestion;
-        try {
-            Map<?, ?> aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, Map.class);
-            if (aiResponse == null || !aiResponse.containsKey("question")) {
-                throw new BadRequestException("AI service failed to generate first question.");
-            }
-            firstQuestion = (String) aiResponse.get("question");
-            if (firstQuestion != null) {
-                firstQuestion = normalizeQuestionText(firstQuestion);
-            }
-        } catch (org.springframework.web.client.RestClientException e) {
-            throw new BadRequestException("Failed to generate first question: " + e.getMessage());
+        Map<?, ?> aiResponse = postToAiServiceWithRetry(aiEndpoint, requestEntity, Map.class, "First question generation");
+        if (aiResponse == null || !aiResponse.containsKey("question")) {
+            throw new BadRequestException("AI service failed to generate first question.");
+        }
+        String firstQuestion = (String) aiResponse.get("question");
+        if (firstQuestion != null) {
+            firstQuestion = normalizeQuestionText(firstQuestion);
         }
 
         // 2. Save Session
@@ -300,14 +353,7 @@ public class InterviewService {
             requestBody.put("question_history", questionHistoryJson);
 
             HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
-            try {
-                aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiEvaluationResponse.class);
-                if (aiResponse == null) {
-                    throw new BadRequestException("AI service failed to evaluate code answer.");
-                }
-            } catch (org.springframework.web.client.RestClientException e) {
-                throw new BadRequestException("AI code evaluation failed: " + e.getMessage());
-            }
+            aiResponse = postToAiServiceWithRetry(aiEndpoint, requestEntity, AiEvaluationResponse.class, "AI code evaluation");
         } else {
             // ---- Audio Answer Path: Multipart to /evaluate-answer (existing flow) ----
             String aiEndpoint = aiServiceUrl + "/api/v1/ai/evaluate-answer";
@@ -336,14 +382,7 @@ public class InterviewService {
             }
 
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-            try {
-                aiResponse = restTemplate.postForObject(aiEndpoint, requestEntity, AiEvaluationResponse.class);
-                if (aiResponse == null) {
-                    throw new BadRequestException("AI service failed to evaluate answer.");
-                }
-            } catch (org.springframework.web.client.RestClientException e) {
-                throw new BadRequestException("AI evaluation failed: " + e.getMessage());
-            }
+            aiResponse = postToAiServiceWithRetry(aiEndpoint, requestEntity, AiEvaluationResponse.class, "AI audio answer evaluation");
         }
 
         // 5. Update Current Log
