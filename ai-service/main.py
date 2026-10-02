@@ -384,6 +384,104 @@ The next question MUST be a practical CODING or SQL problem where the candidate 
 Generate an insightful technical, architectural, system design, or debugging question that progressively challenges the candidate based on their previous answers and the job description."""
 
 
+def load_audio_array(audio_bytes: bytes):
+    """
+    Decodes arbitrary audio bytes (WebM, Opus, MP4, AAC, WAV, OGG) into a 1D float32 numpy array
+    at 16,000 Hz mono for vocal prosody analysis.
+    Uses soundfile directly if already WAV/FLAC, or converts via ffmpeg if available.
+    """
+    import io
+    import soundfile as sf
+    import subprocess
+    import tempfile
+    import os
+    import numpy as np
+
+    # 1. Fast path: try soundfile directly (works if input is uncompressed WAV/FLAC/OGG)
+    try:
+        y, sr = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+        if y.ndim > 1:
+            y = y.mean(axis=1)
+        return y, sr
+    except Exception:
+        pass
+
+    # 2. In-memory pipe conversion via ffmpeg
+    try:
+        cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel", "error",
+            "-y",
+            "-i", "pipe:0",
+            "-vn",
+            "-acodec", "pcm_s16le",
+            "-ac", "1",
+            "-ar", "16000",
+            "-f", "wav",
+            "pipe:1"
+        ]
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        wav_data, err = proc.communicate(input=audio_bytes, timeout=10)
+        if proc.returncode == 0 and wav_data:
+            y, sr = sf.read(io.BytesIO(wav_data), dtype="float32")
+            if y.ndim > 1:
+                y = y.mean(axis=1)
+            return y, sr
+        elif err:
+            logger.debug(f"ffmpeg pipe conversion stderr: {err.decode(errors='ignore')}")
+    except Exception as pipe_err:
+        logger.debug(f"ffmpeg pipe conversion failed: {pipe_err}")
+
+    # 3. Disk-based fallback with NamedTemporaryFile (for formats/containers requiring seekable input)
+    temp_in = None
+    temp_out = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f_in:
+            f_in.write(audio_bytes)
+            temp_in = f_in.name
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f_out:
+            temp_out = f_out.name
+
+        cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel", "error",
+            "-y",
+            "-i", temp_in,
+            "-vn",
+            "-acodec", "pcm_s16le",
+            "-ac", "1",
+            "-ar", "16000",
+            temp_out
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=10)
+        if res.returncode == 0 and os.path.exists(temp_out) and os.path.getsize(temp_out) > 0:
+            y, sr = sf.read(temp_out, dtype="float32")
+            if y.ndim > 1:
+                y = y.mean(axis=1)
+            return y, sr
+        elif res.stderr:
+            logger.debug(f"ffmpeg disk conversion stderr: {res.stderr.decode(errors='ignore')}")
+    except Exception as disk_err:
+        logger.debug(f"ffmpeg disk conversion failed: {disk_err}")
+    finally:
+        if temp_in and os.path.exists(temp_in):
+            try: os.remove(temp_in)
+            except Exception: pass
+        if temp_out and os.path.exists(temp_out):
+            try: os.remove(temp_out)
+            except Exception: pass
+
+    raise ValueError("Could not decode audio into PCM format using soundfile or ffmpeg.")
+
+
 # ==================== Interview Answer Evaluation Endpoint ====================
 
 @app.post("/api/v1/ai/evaluate-answer", response_model=InterviewEvaluationResponse, tags=["Interview Evaluation"])
@@ -502,54 +600,64 @@ async def evaluate_answer(
     prosody_confidence_score = None
     try:
         import librosa
-        import io
         import numpy as np
 
         logger.info("Starting prosody analysis via librosa.")
-        y, sr = librosa.load(io.BytesIO(audio_bytes), sr=None)
+        y, sr = load_audio_array(audio_bytes)
 
-        # 1. Pitch variance (librosa.pyin)
-        # 0 = monotone (0pts), high = expressive (25pts)
-        f0, voiced_flag, voiced_probs = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
-        valid_f0 = f0[voiced_flag] if f0 is not None and voiced_flag is not None else []
-        pitch_score = 0
-        if len(valid_f0) > 0:
-            pitch_std = np.std(valid_f0)
-            pitch_score = min(25, int((pitch_std / 50.0) * 25))
+        if not np.isfinite(y).all():
+            y = np.nan_to_num(y)
 
-        # 2. Pause frequency (librosa.effects.split)
-        # Count silence gaps longer than 0.3s. Many long pauses (0pts), few (25pts).
-        non_mute_intervals = librosa.effects.split(y, top_db=30)
-        long_pauses = 0
-        for i in range(1, len(non_mute_intervals)):
-            gap_samples = non_mute_intervals[i][0] - non_mute_intervals[i-1][1]
-            if gap_samples / sr > 0.3:
-                long_pauses += 1
-        
-        pause_score = max(0, 25 - (long_pauses * 5))
+        if len(y) < sr * 0.5:
+            logger.info("Audio duration too short for prosody analysis (<0.5s).")
+        else:
+            # 1. Pitch variance (librosa.pyin)
+            # 0 = monotone (0pts), high = expressive (25pts)
+            f0, voiced_flag, voiced_probs = librosa.pyin(
+                y,
+                fmin=librosa.note_to_hz('C2'),
+                fmax=librosa.note_to_hz('C7'),
+                sr=sr
+            )
+            valid_f0 = f0[voiced_flag] if f0 is not None and voiced_flag is not None else []
+            pitch_score = 0
+            if len(valid_f0) > 0:
+                pitch_std = np.std(valid_f0)
+                pitch_score = min(25, int((pitch_std / 50.0) * 25))
 
-        # 3. Speaking rate variability (5s windows)
-        # Rate variance proxy using onset strength. Erratic (0pts), steady (25pts).
-        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-        frames_per_5s = int((5.0 * sr) / 512)
-        rate_score = 15 # default
-        if len(onset_env) > frames_per_5s and frames_per_5s > 0:
-            windows = [onset_env[i:i+frames_per_5s] for i in range(0, len(onset_env), frames_per_5s)]
-            rates = [np.sum(w) for w in windows]
-            if np.mean(rates) > 0:
-                cv = np.std(rates) / np.mean(rates)
-                rate_score = max(0, min(25, int(25 - (cv * 50))))
+            # 2. Pause frequency (librosa.effects.split)
+            # Count silence gaps longer than 0.3s. Many long pauses (0pts), few (25pts).
+            non_mute_intervals = librosa.effects.split(y, top_db=30)
+            long_pauses = 0
+            for i in range(1, len(non_mute_intervals)):
+                gap_samples = non_mute_intervals[i][0] - non_mute_intervals[i-1][1]
+                if gap_samples / sr > 0.3:
+                    long_pauses += 1
+            
+            pause_score = max(0, 25 - (long_pauses * 5))
 
-        # 4. Energy consistency (RMS energy variance)
-        # Very high variance = unsteady delivery.
-        rms = librosa.feature.rms(y=y)[0]
-        energy_score = 15 # default
-        if np.mean(rms) > 0:
-            rms_cv = np.std(rms) / np.mean(rms)
-            energy_score = max(0, min(25, int(25 - (rms_cv * 25))))
+            # 3. Speaking rate variability (5s windows)
+            # Rate variance proxy using onset strength. Erratic (0pts), steady (25pts).
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+            frames_per_5s = int((5.0 * sr) / 512)
+            rate_score = 15 # default
+            if len(onset_env) > frames_per_5s and frames_per_5s > 0:
+                windows = [onset_env[i:i+frames_per_5s] for i in range(0, len(onset_env), frames_per_5s)]
+                rates = [np.sum(w) for w in windows]
+                if np.mean(rates) > 0:
+                    cv = np.std(rates) / np.mean(rates)
+                    rate_score = max(0, min(25, int(25 - (cv * 50))))
 
-        prosody_confidence_score = pitch_score + pause_score + rate_score + energy_score
-        logger.info(f"Prosody confidence score: {prosody_confidence_score} (pitch={pitch_score}, pause={pause_score}, rate={rate_score}, energy={energy_score})")
+            # 4. Energy consistency (RMS energy variance)
+            # Very high variance = unsteady delivery.
+            rms = librosa.feature.rms(y=y)[0]
+            energy_score = 15 # default
+            if np.mean(rms) > 0:
+                rms_cv = np.std(rms) / np.mean(rms)
+                energy_score = max(0, min(25, int(25 - (rms_cv * 25))))
+
+            prosody_confidence_score = pitch_score + pause_score + rate_score + energy_score
+            logger.info(f"Prosody confidence score: {prosody_confidence_score} (pitch={pitch_score}, pause={pause_score}, rate={rate_score}, energy={energy_score})")
 
     except Exception as e:
         logger.warning(f"Librosa prosody analysis failed: {e}")

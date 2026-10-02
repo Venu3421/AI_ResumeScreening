@@ -530,6 +530,36 @@ def test_analyze_resume_text_only_returns_empty_highlights(mock_gemini, mock_emb
     assert res_data["page_dimensions"] == []
 
 
+def test_load_audio_array_with_wav_bytes():
+    """Verify load_audio_array successfully parses raw WAV audio into float32 array."""
+    import io
+    import soundfile as sf
+    import numpy as np
+    from main import load_audio_array
+
+    sr = 16000
+    t = np.linspace(0, 1, sr)
+    data = (np.sin(2 * np.pi * 440 * t) * 0.5).astype(np.float32)
+    buf = io.BytesIO()
+    sf.write(buf, data, sr, format="WAV")
+    wav_bytes = buf.getvalue()
+
+    y, out_sr = load_audio_array(wav_bytes)
+    assert len(y) == sr
+    assert out_sr == sr
+    assert y.dtype == np.float32
+
+
+def test_load_audio_array_invalid_bytes_raises_value_error():
+    """Verify load_audio_array raises ValueError gracefully on corrupt/unrecognized bytes."""
+    import pytest
+    from main import load_audio_array
+
+    with pytest.raises(ValueError, match="Could not decode audio"):
+        load_audio_array(b"random non-audio bytes 12345")
+
+
+
 
 
 
