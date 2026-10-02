@@ -23,7 +23,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai.errors import APIError
 from groq import Groq
-from sentence_transformers import SentenceTransformer
 
 from schemas.resume import ResumeAnalysisResponse
 from schemas.interview import InterviewEvaluationResponse, CodeEvaluationRequest
@@ -39,12 +38,30 @@ logger = logging.getLogger(__name__)
 
 gemini_client = None
 groq_client = None
-embedding_model = None  # Phase 2: all-MiniLM-L6-v2, loaded once at startup
+embedding_model = None  # Phase 2: Lazy-loaded on first resume analysis request to conserve RAM
+
+def get_embedding_model():
+    """
+    Lazy-load SentenceTransformer on first demand to prevent OOM errors on 512MB RAM cloud tiers.
+    Configures single-thread CPU execution to minimize thread memory overhead.
+    """
+    global embedding_model
+    if embedding_model is None:
+        logger.info("Lazy-loading SentenceTransformer (all-MiniLM-L6-v2) on demand...")
+        try:
+            import torch
+            torch.set_num_threads(1)
+        except Exception:
+            pass
+        from sentence_transformers import SentenceTransformer
+        embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        logger.info("SentenceTransformer loaded successfully.")
+    return embedding_model
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize Gemini, Groq clients, and the local embedding model on startup."""
-    global gemini_client, groq_client, embedding_model
+    """Initialize Gemini and Groq clients on startup without blocking on heavy ML models."""
+    global gemini_client, groq_client
 
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
@@ -59,12 +76,6 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("GROQ_API_KEY is required.")
     groq_client = Groq(api_key=groq_api_key)
     logger.info("Groq AI client initialized successfully.")
-
-    # Phase 2: Load sentence-transformer locally (downloads ~90 MB on first run).
-    # Subsequent runs use the HuggingFace cache — no network required.
-    logger.info("Loading SentenceTransformer (all-MiniLM-L6-v2) — may download on first run…")
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    logger.info("SentenceTransformer loaded successfully.")
 
     yield
     logger.info("AI Microservice shutting down.")
@@ -149,15 +160,12 @@ async def analyze_resume(
     )
 
     # ---- Layer 2: Semantic Similarity ----
-    global embedding_model
-    if embedding_model is None:
-        logger.info("Lazy-loading SentenceTransformer (all-MiniLM-L6-v2)...")
-        embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    model = get_embedding_model()
 
     semantic_pct = compute_semantic_similarity(
         resume_text=active_resume_text,
         jd_text=job_description,
-        embedding_model=embedding_model,
+        embedding_model=model,
         sections=sections,
     )
 
