@@ -280,8 +280,9 @@ JOB DESCRIPTION:
 
     raw_text = ""
     served_by = "gemini-3.8-flash"
+    client = get_gemini_client()
     try:
-        response = gemini_client.models.generate_content(
+        response = client.models.generate_content(
             model="gemini-3.8-flash",
             contents=gemini_contents,
         )
@@ -293,7 +294,7 @@ JOB DESCRIPTION:
             )
             served_by = "gemini-3-flash-preview"
             try:
-                response = gemini_client.models.generate_content(
+                response = client.models.generate_content(
                     model="gemini-3-flash-preview",
                     contents=gemini_contents,
                 )
@@ -568,9 +569,10 @@ async def evaluate_answer(
     }
     upload_filename = mime_to_ext.get(mime_type, file.filename or "audio.webm")
 
+    groq = get_groq_client()
     groq_duration = None
     try:
-        transcription_response = groq_client.audio.transcriptions.create(
+        transcription_response = groq.audio.transcriptions.create(
             file=(upload_filename, audio_bytes),
             model="whisper-large-v3",
             response_format="verbose_json",
@@ -766,7 +768,7 @@ You MUST respond with ONLY a valid JSON object in exactly this format, with no a
     max_retries = 1
     for attempt in range(max_retries + 1):
         try:
-            response = groq_client.chat.completions.create(
+            response = groq.chat.completions.create(
                 model="qwen/qwen3.8-27b",
                 messages=[{"role": "user", "content": evaluation_prompt}],
                 temperature=0.2,
@@ -904,9 +906,10 @@ You MUST respond with ONLY a valid JSON object in exactly this format, with no a
 
     raw_text = ""
     max_retries = 1
+    groq = get_groq_client()
     for attempt in range(max_retries + 1):
         try:
-            response = groq_client.chat.completions.create(
+            response = groq.chat.completions.create(
                 model="qwen/qwen3.8-27b",
                 messages=[{"role": "user", "content": code_evaluation_prompt}],
                 temperature=0.2,
@@ -991,8 +994,9 @@ Respond with ONLY a valid JSON object in this format:
     "question": "<the interview question>"
 }}"""
 
+    groq = get_groq_client()
     try:
-        response = groq_client.chat.completions.create(
+        response = groq.chat.completions.create(
             model="qwen/qwen3.8-27b",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
