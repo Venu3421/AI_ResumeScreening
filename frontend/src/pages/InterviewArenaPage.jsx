@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
@@ -105,6 +105,7 @@ export default function InterviewArenaPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [coachingTip, setCoachingTip] = useState(null);
   const [presenceSummary, setPresenceSummary] = useState(null);
+  const [codeCameraMinimized, setCodeCameraMinimized] = useState(false);
 
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
@@ -119,6 +120,28 @@ export default function InterviewArenaPage() {
   const inferenceRef = useRef(null);
   /** Tracks whether an audio-only stream was created for MediaRecorder cleanup */
   const audioOnlyStreamRef = useRef(null);
+
+  /**
+   * Callback ref for <video> elements.
+   * Runs immediately when any <video> element mounts into the DOM (e.g. during tab
+   * toggles between Voice & Code answers, question progression, or re-renders).
+   * Instantly re-attaches the live camera stream and triggers playback so the
+   * camera never renders as an empty or pitch-black box.
+   */
+  const attachVideoRef = useCallback((element) => {
+    videoRef.current = element;
+    if (element && cameraStreamRef.current) {
+      const hasLiveVideo = cameraStreamRef.current
+        .getVideoTracks()
+        .some((t) => t.readyState === 'live');
+      if (hasLiveVideo) {
+        if (element.srcObject !== cameraStreamRef.current) {
+          element.srcObject = cameraStreamRef.current;
+        }
+        element.play().catch(() => {});
+      }
+    }
+  }, []);
 
   // ─── Timer effect ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -160,6 +183,7 @@ export default function InterviewArenaPage() {
           cameraStreamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(() => {});
           }
           setCameraActive(true);
           // Pre-load the FaceLandmarker model in background
@@ -187,6 +211,54 @@ export default function InterviewArenaPage() {
       dispose();
     };
   }, [phase]);
+
+  // ─── Camera preview synchronization & auto-recovery ──────────────────────
+  // Guarantees camera stream stays attached across question transitions,
+  // answerMode switches (Voice <-> Code), and recovers automatically if track drops.
+  useEffect(() => {
+    if (phase !== 'active') return;
+
+    let isMounted = true;
+    const syncCamera = async () => {
+      const stream = cameraStreamRef.current;
+      const hasLiveVideo =
+        stream &&
+        stream.active &&
+        stream.getVideoTracks().length > 0 &&
+        stream.getVideoTracks().some((t) => t.readyState === 'live');
+
+      if (!hasLiveVideo) {
+        try {
+          const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+            audio: true,
+          });
+          if (!isMounted) {
+            newStream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          cameraStreamRef.current = newStream;
+          setCameraActive(true);
+          initCoach();
+        } catch {
+          return;
+        }
+      }
+
+      if (videoRef.current && cameraStreamRef.current) {
+        if (videoRef.current.srcObject !== cameraStreamRef.current) {
+          videoRef.current.srcObject = cameraStreamRef.current;
+        }
+        videoRef.current.play().catch(() => {});
+      }
+    };
+
+    syncCamera();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [phase, answerMode, questionCount, currentQuestion, cameraActive]);
 
   // ─── Cleanup all intervals on unmount ────────────────────────────────────
   useEffect(() => () => {
@@ -791,9 +863,9 @@ export default function InterviewArenaPage() {
                         {/* Camera preview — PiP overlay in bottom-right corner */}
                         {/* Always rendered during active phase for ref availability; */}
                         {/* visually hidden via opacity when camera is not active */}
-                        <div className={`absolute bottom-3 right-3 overflow-hidden rounded-2xl border-2 border-white/80 shadow-lg transition-opacity duration-500 ${cameraActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                        <div className={`absolute bottom-3 right-3 overflow-hidden rounded-2xl border-2 border-white/80 shadow-lg transition-opacity duration-500 z-10 ${cameraActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
                           <video
-                            ref={videoRef}
+                            ref={attachVideoRef}
                             autoPlay
                             playsInline
                             muted
@@ -859,9 +931,9 @@ export default function InterviewArenaPage() {
                         </select>
                       </div>
 
-                      <div className="mb-4 overflow-hidden rounded-[24px] border border-slate-200">
+                      <div className="relative mb-4 overflow-hidden rounded-[24px] border border-slate-200">
                         <Editor
-                          height="320px"
+                          height="340px"
                           language={codeLanguage === 'pseudocode' ? 'plaintext' : codeLanguage}
                           value={codeText}
                           onChange={(value) => setCodeText(value || '')}
@@ -876,6 +948,36 @@ export default function InterviewArenaPage() {
                             automaticLayout: true,
                           }}
                         />
+
+                        {/* Camera preview overlay for code mode */}
+                        <div className={`absolute bottom-3 right-3 overflow-hidden rounded-2xl border-2 border-white/80 shadow-lg transition-all duration-300 z-10 ${cameraActive ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                          <video
+                            ref={attachVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            width={160}
+                            height={120}
+                            className={`bg-slate-900 object-cover transition-all duration-300 ${codeCameraMinimized ? 'h-0 w-0' : 'h-[120px] w-[160px]'}`}
+                            style={{ transform: 'scaleX(-1)' }}
+                          />
+                          <div className="flex items-center justify-between gap-1 bg-slate-900/90 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-xs">
+                            <div className="flex items-center gap-1.5 text-emerald-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              <span>Camera</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setCodeCameraMinimized((prev) => !prev)}
+                              className="text-slate-400 hover:text-white transition p-0.5"
+                              title={codeCameraMinimized ? 'Expand camera' : 'Minimize camera'}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                {codeCameraMinimized ? 'unfold_more' : 'unfold_less'}
+                              </span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="mb-6 flex items-center justify-between">
