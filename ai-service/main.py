@@ -613,7 +613,7 @@ async def evaluate_answer(
         else:
             # 1. Pitch variance (optimized librosa.pyin)
             # Focus on a representative slice (up to 20s) and resample to 11025 Hz.
-            # Human speech F0 lies strictly between C2 (~65 Hz) and 380 Hz (avoids soprano C7 2093 Hz).
+            # Human speech F0 lies strictly between C2 (~65 Hz) and 400 Hz (avoids soprano C7 2093 Hz).
             # This accelerates pyin from ~45-60s down to ~1.2s while preserving full vocal nuance.
             y_pitch_slice = y[:int(sr * 20)]
             sr_pitch = 11025
@@ -625,7 +625,7 @@ async def evaluate_answer(
             f0, voiced_flag, voiced_probs = librosa.pyin(
                 y_pitch,
                 fmin=librosa.note_to_hz('C2'),
-                fmax=380,
+                fmax=400,
                 sr=sr_pitch,
                 hop_length=512
             )
